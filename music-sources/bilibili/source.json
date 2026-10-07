@@ -1,0 +1,114 @@
+{
+  "sourceUrl": "https://www.bilibili.com",
+  "sourceName": "Bilibili",
+  "version": "1.0.0",
+  "author": "BBeBee",
+  "sourceGroup": "bilibili,video",
+  "sourceComment": "Bilibili video & audio source.",
+  "concurrentRate": "5/1000",
+  "header": "={\"User-Agent\": \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36\", \"Referer\": \"https://www.bilibili.com/\"}",
+  "allowedHosts": [
+    "bilibili.com",
+    "*.bilibili.com",
+    "bilivideo.com",
+    "*.bilivideo.com",
+    "bilivideo.cn",
+    "*.bilivideo.cn",
+    "akamaized.net",
+    "*.akamaized.net",
+    "szbdyd.com",
+    "*.szbdyd.com",
+    "hdslb.com",
+    "*.hdslb.com"
+  ],
+  "searchUrl": "{{@js:biliSearchUrl(key, page)}}",
+  "searchArtistUrl": "{{@js:biliUserSearchUrl(key, page)}}",
+  "ruleSearch": {
+    "trackList": "$.data.result[*]",
+    "trackId": "$.bvid",
+    "title": "@js:cleanTitle(item.title) + (item.videos && item.videos > 1 ? ' [' + item.videos + 'P]' : '')",
+    "artist": "$.author",
+    "artwork": "@js:cleanPic(item.pic)",
+    "durationMs": "@js:parseDuration(item.duration)",
+    "album": "@js:cleanTitle(item.title)",
+    "albumId": "@js:'bili_video_' + item.bvid"
+  },
+  "ruleSearchArtist": {
+    "trackList": "$.data.result[*]",
+    "trackId": "$.mid",
+    "title": "$.uname",
+    "artwork": "@js:cleanPic(item.upic)"
+  },
+  "exploreUrl": "={{@js:biliExploreUrl()}}",
+  "ruleExplore": {
+    "trackList": "@js:biliExploreRows(result)",
+    "trackId": "$.trackId",
+    "title": "$.title",
+    "artist": "$.artist",
+    "album": "$.album",
+    "artwork": "$.artwork",
+    "durationMs": "$.durationMs",
+    "kind": "$.kind",
+    "childUrl": "$.childUrl"
+  },
+  "ruleRecommend": {
+    "trackList": "@js:biliRecommendRows(result, page)",
+    "trackId": "$.trackId",
+    "title": "$.title",
+    "artist": "$.artist",
+    "album": "$.album",
+    "artwork": "$.artwork",
+    "durationMs": "$.durationMs",
+    "kind": "$.kind",
+    "childUrl": "$.childUrl"
+  },
+  "ruleAlbum": {
+    "childUrl": "@js:biliAlbumUrl(album.id)",
+    "title": "@js:biliAlbumTitle(result)",
+    "artist": "@js:biliAlbumArtist(result)",
+    "artwork": "@js:biliAlbumArtwork(result)",
+    "trackCount": "@js:biliAlbumTrackCount(result)"
+  },
+  "ruleTrackList": {
+    "trackList": "@js:biliAlbumTrackRows(result)",
+    "trackId": "$.trackId",
+    "title": "@js:cleanTitle(item.title)",
+    "artist": "$.artist",
+    "album": "$.album",
+    "artwork": "$.artwork",
+    "durationMs": "$.durationMs"
+  },
+  "ruleStream": {
+    "url": "={{@js:resolveBiliStream(track, prefs)}}",
+    "quality": "={{@js:biliStreamQuality(track)}}",
+    "bitrateKbps": "={{@js:biliStreamBitrate(track)}}",
+    "headers": "={{@js:biliStreamHeaders(track)}}",
+    "seekable": "=true",
+    "expiresAt": "={{@js:src.time.now() + 7200000}}",
+    "qualities": [
+      "low",
+      "normal",
+      "high",
+      "lossless",
+      "hi-res"
+    ]
+  },
+  "ruleLyric": {
+    "lyric": "={{@js:getBiliLyrics(track)}}",
+    "format": "=lrc"
+  },
+  "loginType": "qrcode",
+  "loginQrJs": "return getBiliQrCode()",
+  "loginPollJs": "return pollBiliQrCode(key)",
+  "loginRefreshJs": "return refreshBiliCookie()",
+  "loginCheckJs": "return result?.code !== -101",
+  "ruleArtist": {
+    "artist": "={{@js:getBiliArtist(id)}}"
+  },
+  "rulePlaylist": {
+    "playlist": "={{@js:getBiliPlaylist(id, page)}}"
+  },
+  "ruleLibrary": {
+    "list": "={{@js:getBiliLibraryList(kind, page)}}"
+  }
+}

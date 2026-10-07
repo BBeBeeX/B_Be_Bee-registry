@@ -1,0 +1,41 @@
+# 注册表 CI 门禁：重新编译 → 重新生成索引 → 与已提交文件做 diff → 全量校验。
+#
+# URL 连通性检查是 WARN-ONLY（validate.mjs 不带 --strict 时链接失败只告警不退非零），
+# 这是刻意的：对"新增条目"的 PR 而言，raw.githubusercontent.com 服务的是基础分支，
+# 新条目的 downloadUrl/previewUrl 在合并之前必然 404——若按错误处理，每一个内容 PR
+# 都会被挡下（与内容正确性无关的失败）。合并后 push 到 main 时链接即开始生效。
+# 需要严格模式时在本地运行：node scripts/validate.mjs --strict
+
+name: validate
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history — updatedAt/generatedAt derive from git commit dates)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          # 与主仓 engines 下限一致的 Node 22；脚本只用 Node 内置模块
+          node-version: 22
+
+      - name: Compile sources to dist/
+        run: node scripts/compile.mjs
+
+      - name: Regenerate registry.json and README.md
+        run: node scripts/generate-index.mjs
+
+      # 生成文件（registry.json / README.md / dist/）必须与重新生成的一致：
+      # 改了内容却没重跑脚本、或手改了生成文件，在这里失败
+      - name: Fail if generated files are stale
+        run: git diff --exit-code -- registry.json README.md dist
+
+      - name: Validate (naming, readability, schema, dist, freshness, links)
+        run: node scripts/validate.mjs

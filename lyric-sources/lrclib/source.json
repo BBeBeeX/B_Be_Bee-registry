@@ -1,0 +1,12 @@
+{
+  "id": "builtin-lrclib",
+  "name": "LRCLIB (默认歌词源)",
+  "description": "基于公开开放的 LRCLIB 歌词数据库，支持全球海量百万同步 LRC 歌词搜索",
+  "version": "1.3.0",
+  "author": "LRCLIB Community / BBeBee",
+  "enabled": true,
+  "sortOrder": 0,
+  "allowedHosts": [
+    "lrclib.net"
+  ]
+}
