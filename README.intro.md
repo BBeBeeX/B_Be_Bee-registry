@@ -1,4 +1,4 @@
-# BBeBee 内容注册表（bbebeex-registry）
+# BBeBee 内容注册表（B_Be_Bee-registry）
 
 BBeBee 音乐播放器的**第三方内容注册表**：社区在这里发布与共享四类内容——
 
@@ -18,7 +18,7 @@ BBeBee 音乐播放器的**第三方内容注册表**：社区在这里发布与
 ## 目录结构
 
 ```
-bbebeex-registry/
+B_Be_Bee-registry/
 ├── registry.json              # 应用消费的唯一入口（脚本生成，勿手改）
 ├── README.md                  # 本文件 + 自动生成的条目索引（脚本生成，勿手改）
 ├── README.intro.md            # 本文件的介绍部分（手工维护）

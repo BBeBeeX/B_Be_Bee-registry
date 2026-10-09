@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-10-07T10:22:39-04:00",
-  "repository": "BBeBeeX/bbebeex-registry",
+  "generatedAt": "2026-10-09T08:27:52-04:00",
+  "repository": "BBeBeeX/B_Be_Bee-registry",
   "entries": [
     {
       "id": "bilibili",
@@ -9,8 +9,8 @@
       "version": "1.0.0",
       "author": "BBeBee",
       "description": "Bilibili video & audio source.",
-      "updatedAt": "2026-10-07T10:22:39-04:00",
-      "downloadUrl": "https://raw.githubusercontent.com/BBeBeeX/bbebeex-registry/main/dist/music-sources/bilibili.json",
+      "updatedAt": "2026-10-09T08:27:52-04:00",
+      "downloadUrl": "https://raw.githubusercontent.com/BBeBeeX/B_Be_Bee-registry/main/dist/music-sources/bilibili.json",
       "sourceUrl": "https://www.bilibili.com"
     },
     {
@@ -21,7 +21,7 @@
       "author": "BBeBee",
       "description": "The floor: one stream, no search, no browse. If a screen breaks with this imported, something is reading a capability it never checked.",
       "updatedAt": "2026-10-07T10:22:39-04:00",
-      "downloadUrl": "https://raw.githubusercontent.com/BBeBeeX/bbebeex-registry/main/dist/music-sources/direct-url.json",
+      "downloadUrl": "https://raw.githubusercontent.com/BBeBeeX/B_Be_Bee-registry/main/dist/music-sources/direct-url.json",
       "sourceUrl": "https://stream.example.org/live.mp3"
     },
     {
@@ -32,7 +32,7 @@
       "author": "BBeBee",
       "description": "A podcast published as JSON Feed 1.1 (jsonfeed.org). RSS feeds need the XML engine, which this build does not have — see the README.",
       "updatedAt": "2026-10-07T10:22:39-04:00",
-      "downloadUrl": "https://raw.githubusercontent.com/BBeBeeX/bbebeex-registry/main/dist/music-sources/podcast-json-feed.json",
+      "downloadUrl": "https://raw.githubusercontent.com/BBeBeeX/B_Be_Bee-registry/main/dist/music-sources/podcast-json-feed.json",
       "sourceUrl": "https://podcast.example.org"
     },
     {
@@ -43,7 +43,7 @@
       "author": "BBeBee",
       "description": "A Subsonic-compatible server. Set the source variable to user:password.",
       "updatedAt": "2026-10-07T10:22:39-04:00",
-      "downloadUrl": "https://raw.githubusercontent.com/BBeBeeX/bbebeex-registry/main/dist/music-sources/subsonic.json",
+      "downloadUrl": "https://raw.githubusercontent.com/BBeBeeX/B_Be_Bee-registry/main/dist/music-sources/subsonic.json",
       "sourceUrl": "https://music.example.org"
     },
     {
@@ -53,8 +53,8 @@
       "version": "1.3.0",
       "author": "LRCLIB Community / BBeBee",
       "description": "基于公开开放的 LRCLIB 歌词数据库，支持全球海量百万同步 LRC 歌词搜索",
-      "updatedAt": "2026-10-07T10:22:39-04:00",
-      "downloadUrl": "https://raw.githubusercontent.com/BBeBeeX/bbebeex-registry/main/dist/lyric-sources/lrclib.json"
+      "updatedAt": "2026-10-09T08:27:52-04:00",
+      "downloadUrl": "https://raw.githubusercontent.com/BBeBeeX/B_Be_Bee-registry/main/dist/lyric-sources/lrclib.json"
     }
   ]
 }

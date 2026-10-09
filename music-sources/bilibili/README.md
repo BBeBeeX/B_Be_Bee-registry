@@ -29,7 +29,7 @@ music-sources/bilibili/
 ```
 
 ```bash
-# 在 bbebeex-registry 仓库根:
+# 在 B_Be_Bee-registry 仓库根:
 node scripts/compile.mjs            # 编译 + 校验 → dist/music-sources/bilibili.json(单文件,jsLib 内联)
 node scripts/validate.mjs           # 全量校验(源码可读性、dist 一致性、索引新鲜度)
 node scripts/compile.mjs --unpack dist/music-sources/bilibili.json unpacked/bilibili   # 反解回双文件

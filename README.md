@@ -1,4 +1,4 @@
-# BBeBee 内容注册表（bbebeex-registry）
+# BBeBee 内容注册表（B_Be_Bee-registry）
 
 BBeBee 音乐播放器的**第三方内容注册表**：社区在这里发布与共享四类内容——
 
@@ -18,7 +18,7 @@ BBeBee 音乐播放器的**第三方内容注册表**：社区在这里发布与
 ## 目录结构
 
 ```
-bbebeex-registry/
+B_Be_Bee-registry/
 ├── registry.json              # 应用消费的唯一入口（脚本生成，勿手改）
 ├── README.md                  # 本文件 + 自动生成的条目索引（脚本生成，勿手改）
 ├── README.intro.md            # 本文件的介绍部分（手工维护）
@@ -73,7 +73,7 @@ bbebeex-registry/
 
 | 条目 | 版本 | 作者 | 更新时间 | 说明 |
 | --- | --- | --- | --- | --- |
-| [bilibili](music-sources/bilibili/README.md) | 1.0.0 | BBeBee | 2026-10-07 | Bilibili video & audio source. |
+| [bilibili](music-sources/bilibili/README.md) | 1.0.0 | BBeBee | 2026-10-09 | Bilibili video & audio source. |
 | [direct-url](music-sources/direct-url/README.md) | 1.0.0 | BBeBee | 2026-10-07 | The floor: one stream, no search, no browse. If a screen breaks with this imported, something is reading a capability it never checked. |
 | [podcast-json-feed](music-sources/podcast-json-feed/README.md) | 1.0.0 | BBeBee | 2026-10-07 | A podcast published as JSON Feed 1.1 (jsonfeed.org). RSS feeds need the XML engine, which this build does not have — see the README. |
 | [subsonic](music-sources/subsonic/README.md) | 1.0.0 | BBeBee | 2026-10-07 | A Subsonic-compatible server. Set the source variable to user:password. |
@@ -82,7 +82,7 @@ bbebeex-registry/
 
 | 条目 | 版本 | 作者 | 更新时间 | 说明 |
 | --- | --- | --- | --- | --- |
-| [builtin-lrclib](lyric-sources/lrclib/README.md) | 1.3.0 | LRCLIB Community / BBeBee | 2026-10-07 | 基于公开开放的 LRCLIB 歌词数据库，支持全球海量百万同步 LRC 歌词搜索 |
+| [builtin-lrclib](lyric-sources/lrclib/README.md) | 1.3.0 | LRCLIB Community / BBeBee | 2026-10-09 | 基于公开开放的 LRCLIB 歌词数据库，支持全球海量百万同步 LRC 歌词搜索 |
 
 ## 界面主题（Themes）
 

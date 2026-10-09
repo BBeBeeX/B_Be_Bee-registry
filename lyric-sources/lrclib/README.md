@@ -12,7 +12,7 @@ lyric-sources/lrclib/
 ```
 
 ```bash
-# 在 bbebeex-registry 仓库根:
+# 在 B_Be_Bee-registry 仓库根:
 node scripts/compile.mjs       # 编译 + 校验 → dist/lyric-sources/lrclib.json(单文件,script 内联)
 node scripts/validate.mjs      # 全量校验
 

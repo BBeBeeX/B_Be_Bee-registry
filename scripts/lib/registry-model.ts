@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process'
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-export const REGISTRY_REPO_DEFAULT = 'BBeBeeX/bbebeex-registry'
+export const REGISTRY_REPO_DEFAULT = 'BBeBeeX/B_Be_Bee-registry'
 export const REGISTRY_BRANCH = 'main'
 
 /**
