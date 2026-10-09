@@ -64,6 +64,9 @@ export function validateSourceDocument(value: unknown): SourceDocument {
   if (doc.version !== undefined && !/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(String(doc.version))) {
     at('version', 'must be a semver string (e.g. "1.0.0")')
   }
+  if (doc.minAppVersion !== undefined && !/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(String(doc.minAppVersion))) {
+    at('minAppVersion', 'must be a semver string (e.g. "1.0.0")')
+  }
 
   // 2. Scalars
   for (const key of ['sourceGroup', 'sourceIcon', 'sourceComment', 'variableComment', 'jsLib',
@@ -181,6 +184,9 @@ export function validateLyricSourceDocument(value: unknown): LyricSourceDefiniti
   }
   if (doc.version !== undefined && !/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(String(doc.version))) {
     at('version', 'must be a semver string (e.g. "1.0.0")')
+  }
+  if (doc.minAppVersion !== undefined && !/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(String(doc.minAppVersion))) {
+    at('minAppVersion', 'must be a semver string (e.g. "1.0.0")')
   }
   if (doc.enabled !== undefined && typeof doc.enabled !== 'boolean') {
     at('enabled', 'must be a boolean')

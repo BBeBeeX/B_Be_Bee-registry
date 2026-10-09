@@ -153,6 +153,9 @@ export function themeShapeIssues(value: unknown): string[] {
   if (theme.version !== undefined && !/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(String(theme.version))) {
     issues.push('version: must be a semver string (e.g. "1.0.0")')
   }
+  if (theme.minAppVersion !== undefined && !/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(String(theme.minAppVersion))) {
+    issues.push('minAppVersion: must be a semver string (e.g. "1.0.0")')
+  }
   if (theme.author !== undefined && typeof theme.author !== 'string') {
     issues.push('author: must be a string')
   }

@@ -39,3 +39,26 @@ jobs:
 
       - name: Validate (naming, readability, schema, dist, freshness, links)
         run: node scripts/validate.mjs
+
+      - name: Negative test — verify readability gate rejects obfuscated code
+        run: |
+          TMP_DIR=$(mktemp -d)
+          cp -R . "$TMP_DIR"
+          cat << 'EOF' > "$TMP_DIR/music-sources/bilibili/source.js"
+          const _0x1a2b=['log'];function test(){console[_0x1a2b[0]]('obfuscated');}test();
+          EOF
+          set +e
+          OUTPUT=$( (cd "$TMP_DIR" && node scripts/validate.mjs 2>&1) )
+          EXIT_CODE=$?
+          set -e
+          rm -rf "$TMP_DIR"
+          echo "$OUTPUT"
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "Negative test failed: validate.mjs exited 0 on obfuscated code"
+            exit 1
+          fi
+          if ! echo "$OUTPUT" | grep -q "hex-identifiers"; then
+            echo "Negative test failed: error output did not contain readability rule [hex-identifiers]"
+            exit 1
+          fi
+          echo "Negative test passed: readability gate caught obfuscated code"

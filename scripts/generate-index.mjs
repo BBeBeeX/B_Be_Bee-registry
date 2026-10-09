@@ -52,6 +52,16 @@ function requireVersion(doc, where) {
   }
 }
 
+function optionalMinAppVersion(doc, where) {
+  if (doc.minAppVersion === undefined) return undefined
+  if (typeof doc.minAppVersion !== 'string' || !/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(doc.minAppVersion)) {
+    throw new Error(
+      `${where}: invalid "minAppVersion" (expected semver, e.g. "1.0.0", got ${JSON.stringify(doc.minAppVersion)})`,
+    )
+  }
+  return doc.minAppVersion
+}
+
 function requireString(doc, field, where) {
   if (typeof doc[field] !== 'string' || !doc[field].trim()) {
     throw new Error(`${where}: missing required "${field}"`)
@@ -91,6 +101,8 @@ async function musicEntry(spec, dirName) {
   if (updatedAt) entry.updatedAt = updatedAt
   entry.downloadUrl = `${rawBaseUrl()}/${spec.distDir}/${dirName}.json`
   if (doc.sourceUrl !== undefined) entry.sourceUrl = doc.sourceUrl
+  const minApp = optionalMinAppVersion(doc, where)
+  if (minApp) entry.minAppVersion = minApp
   return entry
 }
 
@@ -107,6 +119,8 @@ async function lyricEntry(spec, dirName) {
   const updatedAt = updatedAtOf(join(repoRoot, spec.dir, dirName))
   if (updatedAt) entry.updatedAt = updatedAt
   entry.downloadUrl = `${rawBaseUrl()}/${spec.distDir}/${dirName}.json`
+  const minApp = optionalMinAppVersion(doc, where)
+  if (minApp) entry.minAppVersion = minApp
   return entry
 }
 
@@ -126,6 +140,8 @@ async function themeEntry(spec, dirName) {
   if (existsSync(join(repoRoot, spec.dir, dirName, 'preview.png'))) {
     entry.previewUrl = `${rawBaseUrl()}/themes/${dirName}/preview.png`
   }
+  const minApp = optionalMinAppVersion(doc, where)
+  if (minApp) entry.minAppVersion = minApp
   return entry
 }
 
@@ -148,9 +164,13 @@ async function pluginEntry(spec, fileName) {
   const updatedAt = updatedAtOf(join(repoRoot, spec.dir, fileName))
   if (updatedAt) entry.updatedAt = updatedAt
   entry.downloadUrl = meta.downloadUrl
-  entry.repo = meta.repo
+  if (meta.repo !== undefined) entry.repo = meta.repo
+  if (meta.repo !== undefined || meta.repoUrl !== undefined) {
+    entry.repoUrl = meta.repoUrl ?? meta.repo
+  }
   entry.sha256 = meta.sha256
-  if (meta.minAppVersion !== undefined) entry.minAppVersion = meta.minAppVersion
+  const minApp = optionalMinAppVersion(meta, where)
+  if (minApp) entry.minAppVersion = minApp
   if (meta.capabilities !== undefined) entry.capabilities = meta.capabilities
   if (existsSync(join(repoRoot, spec.dir, `${meta.id}.preview.png`))) {
     entry.previewUrl = `${rawBaseUrl()}/plugins/${meta.id}.preview.png`
