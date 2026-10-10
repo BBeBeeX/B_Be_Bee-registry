@@ -1,0 +1,8 @@
+{
+  "id": "bbebeex-subsonic",
+  "name": "Subsonic",
+  "repo": "https://github.com/BBeBeeX/B_Be_Bee-subsonic",
+  "author": "BBeBee",
+  "description": "A Subsonic-compatible server music source for BBeBee.",
+  "version": "1.0.0"
+}

@@ -1,102 +1,93 @@
 /**
- * Shared model for the registry scripts: the four content kinds, how entry
- * directories are scanned, last-commit dates, and the raw download-URL base.
+ * scripts/lib/registry-model.ts
+ *
+ * Registry model and directory scanner for the four content kinds.
  */
 
-import { execFileSync } from 'node:child_process'
 import { readdir } from 'node:fs/promises'
-import { join } from 'node:path'
-
-export const REGISTRY_REPO_DEFAULT = 'BBeBeeX/B_Be_Bee-registry'
-export const REGISTRY_BRANCH = 'main'
-
-/**
- * The GitHub org/repo used for raw download URLs. `REGISTRY_REPOSITORY`
- * (env, "org/repo") overrides — the app's default endpoint and the CI both
- * derive from this, so forking the registry and pointing a build at the fork
- * is one variable.
- */
-export function registryRepository(): string {
-  const fromEnv = process.env['REGISTRY_REPOSITORY']
-  if (fromEnv && /^[^/\s]+\/[^/\s]+$/.test(fromEnv)) return fromEnv
-  return REGISTRY_REPO_DEFAULT
-}
-
-export function rawBaseUrl(): string {
-  return `https://raw.githubusercontent.com/${registryRepository()}/${REGISTRY_BRANCH}`
-}
 
 export type RegistryKind = 'music-source' | 'lyric-source' | 'theme' | 'plugin'
 
 export interface KindSpec {
-  /** Directory at the repo root holding one sub-directory per entry. */
   dir: string
   kind: RegistryKind
-  /** Where compiled single-file output goes (music/lyric only). */
-  distDir?: string
+  isFileEntry: boolean
 }
 
 export const KINDS: KindSpec[] = [
-  { dir: 'music-sources', kind: 'music-source', distDir: 'dist/music-sources' },
-  { dir: 'lyric-sources', kind: 'lyric-source', distDir: 'dist/lyric-sources' },
-  { dir: 'themes', kind: 'theme' },
-  { dir: 'plugins', kind: 'plugin' },
+  { dir: 'music-sources', kind: 'music-source', isFileEntry: true },
+  { dir: 'lyric-sources', kind: 'lyric-source', isFileEntry: true },
+  { dir: 'themes', kind: 'theme', isFileEntry: false },
+  { dir: 'plugins', kind: 'plugin', isFileEntry: true },
 ]
 
-/**
- * Entries seeded before the {author}-{name} convention existed (they moved
- * here from the main repo, which consumed their directory names as fixture
- * file names). New entries must follow the convention; these are exempt.
- */
-export const SEED_DIR_ALLOWLIST = new Set([
-  'bilibili',
-  'lrclib',
-  'direct-url',
-  'podcast-json-feed',
-  'subsonic',
-])
-
-const DIR_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/
+const SLUG_WITH_HYPHEN = /^[a-z0-9]+(-[a-z0-9]+)+$/
 
 /**
- * Sub-directories of a kind directory that are entries. Files (README.md,
- * .gitkeep) and dot/underscore-prefixed dirs are skipped — the same rule the
- * main repo's build uses.
+ * Validates the base entry name (filename without .json, or theme dir name).
+ * Must be lowercase alphanumeric with at least one hyphen separating username/author and name.
  */
-export async function scanEntryDirs(kindRoot: string): Promise<string[]> {
-  const entries = await readdir(kindRoot, { withFileTypes: true }).catch(() => [])
-  return entries
-    .filter((e) => e.isDirectory() && !e.name.startsWith('.') && !e.name.startsWith('_'))
-    .map((e) => e.name)
-    .sort()
-}
-
-/** Naming-rule issues for one entry directory name. */
-export function dirNameIssues(kind: RegistryKind, dirName: string): string | undefined {
-  if (!DIR_NAME.test(dirName)) {
-    return `directory name "${dirName}" must be lowercase letters/digits separated by single hyphens`
+export function validateEntryName(name: string): string | undefined {
+  if (!SLUG_WITH_HYPHEN.test(name)) {
+    return `"${name}" must be lowercase alphanumeric separated by hyphens and follow {username}-{name} convention`
   }
-  if (kind === 'plugin') {
-    // Plugin metadata is a single file plugins/<id>.json; handled separately.
-    return undefined
-  }
-  if (dirName.includes('-') || SEED_DIR_ALLOWLIST.has(dirName)) return undefined
-  return `directory name "${dirName}" must follow the {author}-{name} convention (e.g. "alice-mydreamfm"), or be added to SEED_DIR_ALLOWLIST with a reason`
+  return undefined
 }
 
 /**
- * The entry's last-commit time (ISO 8601), the registry's `updatedAt`. Falls
- * back to null when git has no history yet (fresh clones of a not-yet-pushed
- * repo, or CI shallow checkouts without fetch-depth: 0).
+ * Scans a file-based entry directory (music-sources, lyric-sources, plugins)
+ * Returns array of filenames ending with .json.
  */
-export function gitLastCommitDate(paths: string[]): string | null {
-  try {
-    const out = execFileSync('git', ['log', '-1', '--format=%cI', '--', ...paths], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim()
-    return out || null
-  } catch {
-    return null
+export async function scanFileEntries(dir: string): Promise<{ files: string[]; issues: string[] }> {
+  const issues: string[] = []
+  const files: string[] = []
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
+
+  for (const entry of entries) {
+    if (entry.name === '.gitkeep') continue
+    if (entry.isDirectory()) {
+      issues.push(`${entry.name}: directories are not allowed here (entries must be .json files)`)
+      continue
+    }
+    if (!entry.name.endsWith('.json')) {
+      issues.push(`${entry.name}: unexpected file (only .json entry files allowed)`)
+      continue
+    }
+    const baseName = entry.name.slice(0, -'.json'.length)
+    const nameIssue = validateEntryName(baseName)
+    if (nameIssue) {
+      issues.push(`${entry.name}: ${nameIssue}`)
+    }
+    files.push(entry.name)
   }
+
+  files.sort()
+  return { files, issues }
+}
+
+/**
+ * Scans theme directories.
+ * Returns array of theme directory names.
+ */
+export async function scanThemeDirs(dir: string): Promise<{ dirs: string[]; issues: string[] }> {
+  const issues: string[] = []
+  const dirs: string[] = []
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
+
+  for (const entry of entries) {
+    if (entry.name === '.gitkeep') continue
+    if (!entry.isDirectory()) {
+      issues.push(`${entry.name}: unexpected file in themes/ (only theme directories allowed)`)
+      continue
+    }
+    if (entry.name.startsWith('.') || entry.name.startsWith('_')) continue
+    const nameIssue = validateEntryName(entry.name)
+    if (nameIssue) {
+      issues.push(`${entry.name}: ${nameIssue}`)
+    }
+    dirs.push(entry.name)
+  }
+
+  dirs.sort()
+  return { dirs, issues }
 }
