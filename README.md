@@ -1,4 +1,4 @@
-# BBeBee 内容注册表（bbebeex-registry）
+# BBeBee 内容注册表（B_Be_Bee-registry）
 
 BBeBee 音乐播放器的**第三方内容注册表**：社区在这里发布与共享音乐源、歌词源、主题和插件。
 
@@ -25,7 +25,7 @@ BBeBee 音乐播放器的**第三方内容注册表**：社区在这里发布与
 ## 目录结构
 
 ```
-bbebeex-registry/
+B_Be_Bee-registry/
 ├── music-sources/
 │   └── {username}-{name}.json        # 音乐源元数据指针
 ├── lyric-sources/
