@@ -490,6 +490,24 @@ export async function runNegativeTests() {
     assertHasError('theme unknown mode in tokens', issues, ['unknown field "neon"'])
   }
 
+  // 17. Invalid params in music-source (not array of strings)
+  {
+    const issues = validateSourcePointer(
+      {
+        id: 'alice-source',
+        name: 'Alice Source',
+        author: 'Alice',
+        description: 'Test',
+        version: '1.0.0',
+        repo: 'https://github.com/alice/source',
+        params: 'invalid-string-not-array',
+      },
+      'alice-source.json',
+      'music-source',
+    ).map((i) => `${i.field}: ${i.message}`)
+    assertHasError('music-source invalid params (not array)', issues, ['params'])
+  }
+
   console.log(`\nNegative tests finished: ${passed} passed, ${failed} failed.`)
   if (failed > 0) {
     process.exitCode = 1

@@ -38,7 +38,7 @@ node scripts/validate.mjs --test
 ### 3.1 Music Sources & Lyric Sources
 Path: `music-sources/{username}-{name}.json` / `lyric-sources/{username}-{name}.json`
 - **Required**: `id`, `name`, `repo`, `author`, `description`, `version`.
-- **Optional**: `minAppVersion`.
+- **Optional**: `minAppVersion`, `params` (string[] — customizable parameter keys, e.g. `["sourceurl", "username", "password"]`).
 - **Repo constraint**: Must match `https://github.com/<owner>/<repo>`, where `<owner>` equals `{username}` in the filename.
 - **Reject unknown fields**.
 

@@ -10,7 +10,7 @@ const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
 export const GITHUB_REPO = /^https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)(?:\/)?$/
 
 export const SOURCE_ALLOWED_FIELDS = [
-  'id', 'name', 'repo', 'author', 'description', 'version', 'minAppVersion',
+  'id', 'name', 'repo', 'author', 'description', 'version', 'minAppVersion', 'params',
 ] as const
 
 export const PLUGIN_CATEGORIES = [
@@ -130,6 +130,13 @@ export function validateSourcePointer(
   if (meta.minAppVersion !== undefined) {
     if (typeof meta.minAppVersion !== 'string' || !SEMVER.test(meta.minAppVersion)) {
       at('minAppVersion', 'must be a semver string when present')
+    }
+  }
+
+  // params: optional array of non-empty strings
+  if (meta.params !== undefined) {
+    if (!Array.isArray(meta.params) || !meta.params.every((p) => typeof p === 'string' && p.trim().length > 0)) {
+      at('params', 'must be an array of non-empty strings when present')
     }
   }
 
