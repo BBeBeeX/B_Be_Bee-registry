@@ -10,6 +10,7 @@ BBeBee 音乐播放器的**第三方内容注册表**：社区在这里发布与
    - 存储路径：`music-sources/{username}-{name}.json` 与 `lyric-sources/{username}-{name}.json`
    - **纯元数据指针**：注册表仅收录指针元数据，`repo` 字段指向作者的 GitHub 仓库。
    - **作者仓产物契约**：源仓库根目录下必须提供 `index.json` 作为该源的规则文档定义。
+   - **自定义服务器路径与参数（`params`）**：支持声明 `params: ["sourceurl", ...]`，允许用户在播放器中自定义修改服务器地址与路径（如自建 NAS/Navidrome 实例），客户端自动将其加入沙盒网络访问白名单。
 2. **插件（Plugins）**：
    - 存储路径：`plugins/{username}-{pluginname}.json`
    - **纯元数据指针**：注册表不托管插件编译代码，`repo` 指向作者的 GitHub 仓库。

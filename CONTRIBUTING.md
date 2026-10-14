@@ -68,6 +68,32 @@
 | `description` | ✅ | `string` | 功能简要说明 |
 | `version` | ✅ | `string` | semver 版本号（如 `1.0.0`） |
 | `minAppVersion` | ⚪ | `string` | 兼容的最低客户端 semver 版本号 |
+| `params` | ⚪ | `string[]` | 可配置参数键名列表（如 `["sourceurl", "username", "password"]`） |
+
+#### `params` 可配置参数与自定义服务器路径说明：
+对于需要用户连接自建实例或提供自定义配置的音源（例如 Subsonic、Navidrome、Jellyfin 或 WebDAV 源），可在条目中声明 `params` 字符串数组：
+1. **允许用户自定义服务器地址与路径**：
+   - 当 `params` 包含 `"sourceurl"`（不区分大小写，如 `"sourceurl"` 或 `"source_url"`）时，BBeBee 客户端会识别该源支持自定义服务实例，允许用户在播放器的源设置弹窗中修改服务器地址与路径（如自建 NAS、内网 IP `http://192.168.1.100:4533`、自建反向代理路径 `https://my-nas.lan/music` 等），覆盖作者默认提供的占位 `sourceUrl`。
+2. **沙盒网络白名单动态注入**：
+   - 客户端在用户手动修改 `sourceurl` 后，会解析并提取新主机名（Host/IP），将其**动态合并追加到当前音源 QuickJS 沙盒的 `allowedHosts` 网络访问白名单中**，放行后续 API 与媒体流请求，且不覆盖源内原有的静态白名单节点。
+3. **松弛匹配与更新状态检测**：
+   - 客户端在比对该源的安装与更新状态时，若检测到 `params` 中包含 `sourceurl` 且已被用户自定义配置，将跳过对默认 `entry.sourceUrl` 的强一致性比对，避免用户自定义路径后被错误标记为未安装。
+4. **配置示例（`music-sources/bbebeex-subsonic.json`）**：
+   ```json
+   {
+     "id": "subsonic",
+     "name": "Subsonic",
+     "version": "1.0.0",
+     "author": "BBeBee",
+     "description": "Subsonic-compatible music source with Navidrome / Airsonic support.",
+     "repo": "https://github.com/BBeBeeX/B_Be_Bee-subsonic",
+     "params": [
+       "sourceurl",
+       "username",
+       "password"
+     ]
+   }
+   ```
 
 ### 4.2 插件（`plugins/`）
 
