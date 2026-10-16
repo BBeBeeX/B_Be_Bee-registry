@@ -1,0 +1,14 @@
+{
+  "id": "bbebeex-jellyfin",
+  "name": "Jellyfin",
+  "repo": "https://github.com/BBeBeeX/B_Be_Bee-Jellyfin",
+  "author": "BBeBee",
+  "description": "A Jellyfin media server music source for BBeBee.",
+  "version": "1.0.0",
+  "params": [
+    "sourceurl",
+    "username",
+    "password",
+    "token"
+  ]
+}
