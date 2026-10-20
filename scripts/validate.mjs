@@ -30,6 +30,7 @@ import {
   validateSourcePointer,
   validatePluginDependencyGraph,
   validatePluginProvidesGate,
+  validatePluginNpmUniqueness,
   collectProvidedServiceKeys,
   collectValidProvidedServiceKeys,
   parseGitHubRepo,
@@ -468,6 +469,11 @@ export async function validateRegistry(root = repoRoot) {
     pluginDocs,
     new Set(CRITICAL_SERVICE_KEYS),
   )) {
+    err(`plugins (${field}): ${message}`)
+  }
+
+  // 跨条目 npm 唯一性：一个 npm 包只能支撑一个条目
+  for (const { field, message } of validatePluginNpmUniqueness(pluginDocs)) {
     err(`plugins (${field}): ${message}`)
   }
 
@@ -1017,7 +1023,7 @@ export async function runNegativeTests() {
     }
   }
 
-  const pluginIssues = (doc, file = 'alice-plug.json') =>
+  const pluginIssues = (doc, file = `${doc.id}.json`) =>
     validatePluginPointer(doc, file).map((i) => `${i.field}: ${i.message}`)
 
   // 18. Plugin carrying the removed `version` field
@@ -1116,7 +1122,7 @@ export async function runNegativeTests() {
       ['alice-b', v2Plugin({ id: 'alice-b' })],
       ['alice-c', v2Plugin({ id: 'alice-c' })],
     ])
-    const shapeIssues = [...entries.values()].flatMap((d) => pluginIssues(d))
+    const shapeIssues = [...entries.values()].flatMap((d) => pluginIssues(d, `${d.id}.json`))
     const graphIssues = validatePluginDependencyGraph(entries).map((i) => `${i.field}: ${i.message}`)
     assertNoError('plugin valid dependencies (shape + graph)', [...shapeIssues, ...graphIssues])
   }
@@ -1168,6 +1174,19 @@ export async function runNegativeTests() {
       isValidRange('1.2.3 - 2.0.0') === false, // hyphen ranges unsupported
       isValidRange('^1.0') === false, // partial versions rejected
       isValidRange('') === false,
+      // Prerelease ordering is full semver (audit cases): a range bound
+      // is an ordering boundary — beta does not satisfy =alpha…
+      satisfies('1.2.3-beta', '1.2.3-alpha') === false,
+      satisfies('1.2.3-alpha', '1.2.3-alpha') === true,
+      satisfies('1.2.3', '1.2.3-alpha') === false,
+      // …and a bare "<release" bound admits that release's prereleases
+      satisfies('1.2.3-alpha', '<1.2.3') === true,
+      // npm admission gate: no same-tuple comparator, no prerelease
+      satisfies('1.2.3-alpha', '^1.0.0') === false,
+      satisfies('1.2.3-alpha', '^1.2.3-alpha') === true,
+      satisfies('1.2.3-alpha.1', '>1.2.3-alpha') === true,
+      satisfies('1.2.3-alpha', '>=1.2.3-beta') === false,
+      satisfies('1.2.3-rc.1', '>=1.2.3-beta') === true,
     ]
     if (checks.every(Boolean)) {
       console.log('  ✓ semver-range parser sanity')
@@ -1196,7 +1215,7 @@ export async function runNegativeTests() {
   // 35. Cross-entry `provides`: B may declare a service that A provides;
   //     a key nobody provides (and not a core key) still fails.
   {
-    const pluginIssuesWith = (doc, extras, file = 'alice-plug.json') =>
+    const pluginIssuesWith = (doc, extras, file = `${doc.id}.json`) =>
       validatePluginPointer(doc, file, extras).map((i) => `${i.field}: ${i.message}`)
 
     const docA = v2Plugin({ id: 'alice-suite', provides: ['suiteCore'] })
@@ -1582,6 +1601,62 @@ export async function runNegativeTests() {
         [{ file: 'plugins/alice-plug.json', id: 'alice-plug', owner: 'alice' }],
         'CONTRIBUTOR',
       ).errors,
+    )
+  }
+
+  // 45. Misc gates: engines ranges, id == file name, npm uniqueness
+  {
+    assertHasError(
+      'engines value not a semver range',
+      pluginIssues(v2Plugin({ engines: { bbebee: 'whenever' } })),
+      ['engines', '"bbebee"', 'valid semver range'],
+    )
+    assertHasError(
+      'engines value not a string',
+      pluginIssues(v2Plugin({ engines: { bbebee: 42 } })),
+      ['engines', 'valid semver range'],
+    )
+    assertNoError(
+      'engines valid ranges',
+      pluginIssues(v2Plugin({ engines: { bbebee: '>=0.1.0 <1.0.0', node: '^20.0.0' } })),
+    )
+
+    // Plugin ids live in the plugin namespace, not the GitHub-username
+    // namespace: the binding is id == file name (AGENTS.md §3.2).
+    assertHasError(
+      'plugin id must equal the file name',
+      pluginIssues(v2Plugin(), 'alice-other.json'),
+      ['must equal the file name'],
+    )
+    assertNoError(
+      'plugin id equal to the file name passes (meters shape)',
+      pluginIssues(
+        v2Plugin({
+          id: 'bbebee-plugin-visualizer-meters',
+          npm: '@bbebee/plugin-visualizer-meters',
+          repo: 'https://github.com/BBeBeeX/B_Be_Bee-visualizer-meters',
+        }),
+        'bbebee-plugin-visualizer-meters.json',
+      ),
+    )
+
+    const dupNpm = new Map([
+      ['alice-a', v2Plugin({ id: 'alice-a', npm: '@alice/shared' })],
+      ['alice-b', v2Plugin({ id: 'alice-b', npm: '@alice/shared' })],
+    ])
+    assertHasError(
+      'npm package backing two entries',
+      validatePluginNpmUniqueness(dupNpm).map((i) => `${i.field}: ${i.message}`),
+      ['declared by multiple entries', '@alice/shared'],
+    )
+    assertNoError(
+      'npm packages unique across entries',
+      validatePluginNpmUniqueness(
+        new Map([
+          ['alice-a', v2Plugin({ id: 'alice-a', npm: '@alice/a' })],
+          ['alice-b', v2Plugin({ id: 'alice-b', npm: '@alice/b' })],
+        ]),
+      ).map((i) => `${i.field}: ${i.message}`),
     )
   }
 

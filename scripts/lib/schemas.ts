@@ -243,16 +243,27 @@ export function validatePluginPointer(
     at('npm', `invalid npm package name ${JSON.stringify(meta.npm)}`)
   }
 
-  // repo check
+  // repo check (format only — plugin identity is bound by the id rule
+  // below and the content checks, not by a filename prefix)
   if (typeof meta.repo !== 'string' || !meta.repo.trim()) {
     at('repo', 'required — must point to author GitHub repository (https://github.com/<owner>/<repo>)')
-  } else {
-    const parsed = parseGitHubRepo(meta.repo)
-    if (!parsed) {
-      at('repo', `must be in format https://github.com/<owner>/<repo>, got ${JSON.stringify(meta.repo)}`)
-    } else {
-      const fnIssue = checkFilenameOwner(fileName, parsed.owner)
-      if (fnIssue) at('repo', fnIssue)
+  } else if (!parseGitHubRepo(meta.repo)) {
+    at('repo', `must be in format https://github.com/<owner>/<repo>, got ${JSON.stringify(meta.repo)}`)
+  }
+
+  // id ↔ filename: plugin entries are filed as `plugins/<id>.json`, so
+  // a dependency written as an id always resolves to the file of the
+  // same name (AGENTS.md §3.2 contract). Plugin ids live in the plugin
+  // namespace (e.g. "bbebee-plugin-…"), not in the GitHub-username
+  // namespace the source kinds use, so the {username}- prefix rule does
+  // not apply here — this equality is the binding instead.
+  if (typeof meta.id === 'string' && meta.id.trim()) {
+    const stem = fileName.endsWith('.json') ? fileName.slice(0, -'.json'.length) : fileName
+    if (stem !== meta.id) {
+      at(
+        'id',
+        `must equal the file name — plugin entries are filed as plugins/<id>.json (file is "${fileName}", id is "${meta.id}")`,
+      )
     }
   }
 
@@ -351,6 +362,14 @@ export function validatePluginPointer(
   if (meta.engines !== undefined) {
     if (meta.engines === null || typeof meta.engines !== 'object' || Array.isArray(meta.engines)) {
       at('engines', 'must be an object like { "bbebee": ">=0.1.0" }')
+    } else {
+      // Clients gate installs on these values — a garbage string must
+      // not be able to smuggle the check responsibility downstream.
+      for (const [engine, range] of Object.entries(meta.engines as Record<string, unknown>)) {
+        if (typeof range !== 'string' || !isValidRange(range)) {
+          at('engines', `"${engine}" must be a valid semver range string (got ${JSON.stringify(range)})`)
+        }
+      }
     }
   }
 
@@ -477,6 +496,38 @@ export function validatePluginProvidesGate(
         'provides',
         `service key "${key}" is provided by multiple entries (${ids.join(', ')}) — a service key may have only one registry provider`,
       )
+    }
+  }
+  return issues
+}
+
+/**
+ * Cross-entry uniqueness of the `npm` field: one npm package backs
+ * exactly one registry entry. Two entries pointing at the same package
+ * would make the content check (manifest id ↔ entry id) unsatisfiable
+ * for at least one of them and leave clients with two listings for one
+ * downloadable — reject it outright instead of relying on the online
+ * check to catch it indirectly.
+ *
+ * @param entries map of plugin id → parsed entry document
+ */
+export function validatePluginNpmUniqueness(
+  entries: Map<string, Record<string, unknown>>,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  const byNpm = new Map<string, string[]>()
+  for (const [id, doc] of entries) {
+    if (!doc || typeof doc.npm !== 'string' || !doc.npm.trim()) continue
+    const list = byNpm.get(doc.npm.trim()) ?? []
+    list.push(id)
+    byNpm.set(doc.npm.trim(), list)
+  }
+  for (const [npm, ids] of byNpm) {
+    if (ids.length > 1) {
+      issues.push({
+        field: 'npm',
+        message: `npm package "${npm}" is declared by multiple entries (${ids.join(', ')}) — an npm package may back only one registry entry`,
+      })
     }
   }
   return issues

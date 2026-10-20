@@ -14,10 +14,16 @@
  *   ">=1.0.0 <2.0.0 || >=3.0.0"  OR groups
  *
  * NOT supported (rejected as invalid): hyphen ranges ("1.2.3 - 2.0.0"),
- * partial wildcards ("1.2.x"), "v" prefixes, prerelease tags in ranges.
- * Versions themselves must be full "major.minor.patch" (build metadata is
- * stripped before comparison; prerelease versions never satisfy a range
- * unless the range itself mentions a prerelease — same as npm).
+ * partial wildcards ("1.2.x"), "v" prefixes.
+ * Versions themselves must be full "major.minor.patch" (build metadata
+ * is stripped before comparison). Prerelease tags ARE supported, in
+ * versions and in range comparators, with semver ordering: a release
+ * outranks its own prereleases ("1.2.3-alpha" < "1.2.3"), and two
+ * prereleases on the same tuple compare identifier by identifier.
+ * Admission gate (npm's prerelease rule): a prerelease version only
+ * satisfies a comparator group that contains a comparator on the same
+ * [major, minor, patch] tuple — so "1.2.3-alpha" satisfies "<1.2.3"
+ * and ">=1.2.3-alpha", but not "^1.0.0".
  */
 
 export type SemverTuple = [number, number, number]
@@ -25,8 +31,8 @@ export type SemverTuple = [number, number, number]
 interface Comparator {
   op: '>=' | '<=' | '>' | '<' | '='
   version: SemverTuple
-  /** True when the comparator text carried a prerelease tag. */
-  hasPrerelease: boolean
+  /** The comparator's prerelease tag, or null for a plain release. */
+  prerelease: string | null
 }
 
 export type SemverRange = Comparator[][] // OR of AND-groups
@@ -50,6 +56,45 @@ function compareTuples(a: SemverTuple, b: SemverTuple): number {
   return 0
 }
 
+const NUMERIC_ID = /^\d+$/
+
+/**
+ * Compares two prerelease tags per semver §11: a plain release (null)
+ * outranks every prerelease; otherwise identifiers compare dot-by-dot —
+ * numeric identifiers numerically and below alphanumeric ones, and a
+ * shorter identifier list ranks below a longer one it prefixes.
+ */
+function comparePrereleases(a: string | null, b: string | null): number {
+  if (a === b) return 0
+  if (a === null) return 1
+  if (b === null) return -1
+  const as = a.split('.')
+  const bs = b.split('.')
+  for (let i = 0; i < Math.max(as.length, bs.length); i++) {
+    if (i >= as.length) return -1
+    if (i >= bs.length) return 1
+    const x = as[i]!
+    const y = bs[i]!
+    if (x === y) continue
+    const xNum = NUMERIC_ID.test(x)
+    const yNum = NUMERIC_ID.test(y)
+    if (xNum && yNum) return Number(x) < Number(y) ? -1 : 1
+    if (xNum) return -1
+    if (yNum) return 1
+    return x < y ? -1 : 1
+  }
+  return 0
+}
+
+/** Full version comparison: tuple first, then prerelease ordering. */
+function compareVersions(
+  a: { tuple: SemverTuple; prerelease: string | null },
+  b: { tuple: SemverTuple; prerelease: string | null },
+): number {
+  const t = compareTuples(a.tuple, b.tuple)
+  return t !== 0 ? t : comparePrereleases(a.prerelease, b.prerelease)
+}
+
 /** Expands one comparator token ("^1.2.3", ">=1.0.0", "1.2.3", …) or null. */
 function parseToken(token: string): Comparator[] | null {
   if (token === '' || token === '*') return [] // matches everything
@@ -60,12 +105,11 @@ function parseToken(token: string): Comparator[] | null {
   const parsed = parseVersion(m[2]!)
   if (!parsed) return null
   const { tuple, prerelease } = parsed
-  const hasPrerelease = prerelease !== null
 
   switch (op) {
     case '':
     case '=':
-      return [{ op: '=', version: tuple, hasPrerelease }]
+      return [{ op: '=', version: tuple, prerelease }]
     case '^': {
       // ^1.2.3 := >=1.2.3 <2.0.0 ; ^0.2.3 := >=0.2.3 <0.3.0 ; ^0.0.3 := =0.0.3
       const upper: SemverTuple =
@@ -75,20 +119,20 @@ function parseToken(token: string): Comparator[] | null {
             ? [0, tuple[1]! + 1, 0]
             : [0, 0, tuple[2]! + 1]
       return [
-        { op: '>=', version: tuple, hasPrerelease },
-        { op: '<', version: upper, hasPrerelease: false },
+        { op: '>=', version: tuple, prerelease },
+        { op: '<', version: upper, prerelease: null },
       ]
     }
     case '~':
       return [
-        { op: '>=', version: tuple, hasPrerelease },
-        { op: '<', version: [tuple[0]!, tuple[1]! + 1, 0], hasPrerelease: false },
+        { op: '>=', version: tuple, prerelease },
+        { op: '<', version: [tuple[0]!, tuple[1]! + 1, 0], prerelease: null },
       ]
     case '>=':
     case '<=':
     case '>':
     case '<':
-      return [{ op, version: tuple, hasPrerelease }]
+      return [{ op, version: tuple, prerelease }]
     default:
       return null
   }
@@ -123,19 +167,24 @@ export function isValidRange(range: string): boolean {
 }
 
 /**
- * True when `version` satisfies the parsed range. Versions with a
- * prerelease tag only satisfy ranges that themselves mention a prerelease
- * (npm semantics).
+ * True when `version` satisfies the parsed range. Prerelease versions
+ * are admitted only into a comparator group that contains a comparator
+ * on the same [major, minor, patch] tuple (npm's prerelease rule), and
+ * comparisons use full semver ordering, prerelease tags included.
  */
 export function satisfiesRange(version: string, range: SemverRange): boolean {
   const parsed = parseVersion(version)
   if (!parsed) return false
-  const { tuple, prerelease } = parsed
 
   return range.some((group) => {
-    if (prerelease !== null && !group.some((c) => c.hasPrerelease)) return false
+    if (
+      parsed.prerelease !== null &&
+      !group.some((c) => compareTuples(c.version, parsed.tuple) === 0)
+    ) {
+      return false
+    }
     return group.every((c) => {
-      const cmp = compareTuples(tuple, c.version)
+      const cmp = compareVersions(parsed, { tuple: c.version, prerelease: c.prerelease })
       switch (c.op) {
         case '=':
           return cmp === 0
