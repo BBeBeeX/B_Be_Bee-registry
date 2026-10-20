@@ -16,7 +16,7 @@
 3. **添加注册表条目**：
    - 音乐源：新建 `music-sources/{username}-{name}.json`
    - 歌词源：新建 `lyric-sources/{username}-{name}.json`
-   - 插件：新建 `plugins/{username}-{pluginname}.json`
+   - 插件：新建 `plugins/<id>.json`（文件名即插件 `id`，见 §2）
    - 主题：新建 `themes/{author}-{name}/theme.json` 并附带 `themes/{author}-{name}/preview.png`
 4. **本地运行校验门禁**：
    ```bash
@@ -32,10 +32,12 @@
 
 ## 2. 命名规范与所有权一致性
 
-- **文件名规范**：所有条目文件名或主题目录名必须遵循小写英文字母、数字和连字符命名，格式为 `{username}-{name}`（例如 `bbebeex-subsonic.json`）。
-- **所有权一致性（防冒名与归属检验）**：
-  - 源与插件的文件名中的 `{username}` **必须与 `repo` 字段中的 GitHub owner 一致**（大小写不敏感匹配）。
+- **源与主题的文件名规范**：必须遵循小写英文字母、数字和连字符命名，格式为 `{username}-{name}`（例如 `bbebeex-subsonic.json`）。
+- **源的所有权一致性（防冒名与归属检验）**：
+  - 音乐源/歌词源文件名中的 `{username}` **必须与 `repo` 字段中的 GitHub owner 一致**（大小写不敏感匹配）。
   - 例如，repo 为 `https://github.com/Alice/my-source`，文件名必须以 `alice-` 开头（如 `music-sources/alice-my-source.json`）。
+- **插件的文件名即 `id`**：插件条目文件名为 `plugins/<id>.json`，文件名（去 `.json`）必须与条目 `id` 完全一致，不一致 CI 直接拒绝。插件 id 处于插件命名空间（如 `bbebee-plugin-visualizer-meters`），**不要求**以 GitHub 用户名开头；插件与作者的归属绑定由 npm 内容校验承担（包内 manifest 的 `id` 必须等于条目 `id`，见 §5）。
+- **官方条目**：条目是否为"官方"**只看 `repo` 的 owner 是否为 `BBeBeeX`**，与 id 前缀、作者署名无关；客户端的"官方"徽标同样只由此得出。`bbebeex-` 前缀为官方保留：非 BBeBeeX owner 的条目使用该前缀会被 CI 直接拒绝。官方条目（repo owner 为 BBeBeeX 的条目）只能由 BBeBeeX 组织成员（OWNER/MEMBER 关联）通过 PR 提交，CI 会校验 PR 作者与组织的关联；`CODEOWNERS` 亦要求官方条目由 @BBeBeeX 审核。
 
 ---
 
@@ -104,19 +106,19 @@
 
 ### 4.2 插件（`plugins/`）
 
-- 路径：`plugins/{username}-{pluginname}.json`
+- 路径：`plugins/<id>.json`（文件名必须等于 `id`）
 - 纯指针元数据（schema v2：无 `version` 字段，版本真相在 npm）。
 
 | 字段 | 必填 | 类型 | 说明 |
 |---|---|---|---|
-| `id` | ✅ | `string` | 唯一标识符，小写连字符 slug |
+| `id` | ✅ | `string` | 唯一标识符，小写连字符 slug；必须等于文件名（去 `.json`） |
 | `name` | ✅ | `string` | 插件显示名称 |
 | `repo` | ✅ | `string` | 作者 GitHub 仓库主页，必须为 `https://github.com/<owner>/<repo>` |
 | `npm` | ✅ | `string` | npm 包名（客户端从此下载，如 `"@alice/bbebee-plugin-foo"`） |
 | `author` | ✅ | `string` | 作者署名 |
 | `description` | ✅ | `string` | 插件功能说明 |
 | `services` | ✅ | `string[]` | 插件运行时必须注入的 **Cordis 服务键** 列表（如 `["player", "store"]`；可为 `[]`——纯事件型插件不注入任何服务。键必须能被满足：核心键以 BBeBee 仓库从插件 manifest 生成的清单为准（本仓库 vendored 副本在 `scripts/lib/service-keys.generated.json`，用 `node scripts/sync-service-keys.mjs` 同步，不要手工改），或由其他插件条目在 `provides` 中声明；无法满足的键会被 CI 拒绝） |
-| `provides` | ⚪ | `string[]` | 本插件对外提供的 **Cordis 服务键**（如本插件注册了供别人注入的服务，在此声明；其他条目即可在自己的 `services` 中引用。可为 `[]`，缺省视为不提供） |
+| `provides` | ⚪ | `string[]` | 本插件对外提供的 **Cordis 服务键**（如本插件注册了供别人注入的服务，在此声明；其他条目即可在自己的 `services` 中引用。可为 `[]`，缺省视为不提供）。**门禁**：关键核心键（`audio`、`codec`、`contentRegistry`、`db`、`downloads`、`fs`、`http`、`js`、`library`、`paths`、`player`、`plugin-manager`、`scanner`、`secrets`、`securityAudit`、`settings`、`store`）保留给内置提供者，任何条目不得宣称提供；同一服务键在全注册表中最多只能有一个提供者条目，冲突即拒绝 |
 | `platforms` | ✅ | `string[]` | 适配平台（非空，值域 `desktop` / `mobile`） |
 | `category` | ✅ | `string` | 插件类别（必须匹配预定义枚举） |
 | `dependencies` | ✅ | `string[]` | 依赖的其他插件：`"<registry-id>"` 或 `"<registry-id>@<semver-range>"`（如 `"bob-dsp-pack@^2.0.0"`；无依赖填 `[]`）。id 必须对应已存在的条目；依赖成环会被 CI 拒绝 |
@@ -124,8 +126,10 @@
 | `i18n` | ✅ | `string[]` | 插件 UI 支持的语言标签列表（非空，如 `["en", "zh"]`） |
 | `minAppVersion` | ⚪ | `string` | 兼容的最低客户端 semver 版本 |
 | `screenshot` | ⚪ | `string` | 预览截图 URL（必须以 `https://` 开头） |
-| `engines` | ⚪ | `object` | 引擎版本约束对象（如 `{ "bbebee": ">=0.1.0" }`） |
+| `engines` | ⚪ | `object` | 引擎版本约束对象（如 `{ "bbebee": ">=0.1.0" }`）；每个值必须是合法的 semver 区间字符串 |
 | `homepage` | ⚪ | `string` | 项目主页 URL（必须以 `https://` 开头） |
+| `reviewedVersion` | ⚪ | `string` | **已审版本钉扎**：注册表已实际审核过的 npm 版本号（semver）。与 `reviewedIntegrity` 必须成对出现 |
+| `reviewedIntegrity` | ⚪ | `string` | 已审版本的完整性哈希（`sha512-…` SRI，即 npm packument 中该版本的 `dist.integrity`）。CI 校验钉扎版本仍存在且哈希一致；内容校验对钉扎版本执行，npm 上出现更新的未审 `latest` 只警告不拦截（客户端始终可安装已审版本） |
 
 > ⚠️ **概念区分**：注册表条目的 `services`（本表）声明的是插件**依赖注入哪些 Cordis 服务**
 > （运行时 `inject` 的服务键，用于安装前做服务依赖检查）；而插件自身 `BBeBee.plugin.json`
@@ -205,9 +209,15 @@
 - **插件**：注册表条目**不携带 `version`**；版本管理完全走 npm——发布新版即 `npm publish` 递增 `package.json#version`
   （并同步 `BBeBee.plugin.json#version`），客户端通过 npm packument 检查更新。修改注册表条目元数据
   （如改描述、加 `services`）不需要"发版"，直接提 PR 更新条目 JSON 即可。
-- `plugins/index.json` 是生成的聚合索引（`node scripts/build-index.mjs`），提交条目 PR 时如
-  CI 报 index 过期，本地运行一次该命令重新生成后一起提交。
+- `plugins/index.json` 是生成的聚合索引（`node scripts/build-index.mjs`），形态为
+  `{ "entries": [...], "blocked": [...] }`；提交条目 PR 时如 CI 报 index 过期，本地运行一次
+  该命令重新生成后一起提交（`validate.mjs` 本身也会在内存中重算并比对，过期或被手改的
+  索引在校验阶段即报错）。
 - **npm 包存在性与内容**：CI 会检查插件条目的 `npm` 字段是否对应 npm 上已发布的**公开**包
-  （404 即失败），并拉取该包**最新版**的 `BBeBee.plugin.json` 与 `package.json`（经 jsDelivr）
-  核对：manifest 的 `id` 必须等于条目 `id`、`package.json` 的 `name` 必须等于条目 `npm` 字段，
-  不一致即失败。提交注册表 PR 前请先 `npm publish`，包名拼错、私有包、发错包都会被拒绝。
+  （404 即失败），并拉取该包的 `BBeBee.plugin.json` 与 `package.json`（经 jsDelivr）核对。
+  校验版本：条目声明了 `reviewedVersion` 钉扎时对**钉扎版本**校验（且其 `dist.integrity`
+  必须与 `reviewedIntegrity` 一致）；未钉扎时对最新版校验。核对内容除 manifest 的 `id`
+  等于条目 `id`、`package.json` 的 `name` 等于条目 `npm` 字段外，还包含**声明属实性交叉
+  校验**：条目 `provides` 的每个键必须真实出现在包内 manifest 的 `contributes.services`
+  中；manifest 若声明 `inject` 数组，条目 `services` 必须与之双向一致。不一致即失败。
+  提交注册表 PR 前请先 `npm publish`，包名拼错、私有包、发错包都会被拒绝。

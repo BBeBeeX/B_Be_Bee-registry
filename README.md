@@ -12,13 +12,14 @@ BBeBee 音乐播放器的**第三方内容注册表**：社区在这里发布与
    - **作者仓产物契约**：源仓库根目录下必须提供 `index.json` 作为该源的规则文档定义。
    - **自定义服务器路径与参数（`params`）**：支持声明 `params: ["sourceurl", ...]`，允许用户在播放器中自定义修改服务器地址与路径（如自建 NAS/Navidrome 实例），客户端自动将其加入沙盒网络访问白名单。
 2. **插件（Plugins）**：
-   - 存储路径：`plugins/{username}-{pluginname}.json`
-   - **纯元数据指针**：注册表不托管插件代码；条目的 `npm` 字段指向作者发布到 npm 的包，`repo` 指向作者的 GitHub 仓库。
-   - **版本真相在 npm**：条目不携带 `version` 字段；客户端从 npm packument 解析最新/符合依赖 range 的版本后下载安装。
+   - 存储路径：`plugins/<id>.json`（文件名即插件 `id`，两者必须一致）
+   - **纯元数据指针**：注册表不托管插件代码；条目的 `npm` 字段指向作者发布到 npm 的包，`repo` 指向作者的 GitHub 仓库。一个 npm 包只能支撑一个条目。
+   - **版本真相在 npm**：条目不携带 `version` 字段；客户端从 npm packument 解析最新/符合依赖 range 的版本后下载安装。条目可另声明**已审版本钉扎**（`reviewedVersion` + `reviewedIntegrity`）：CI 校验该版本仍在 npm 上且完整性哈希一致，内容校验对钉扎版本执行；出现更新的未审版本只警告。
    - **依赖声明**：`services` 列出插件必须注入的 Cordis 服务键（安装前做服务依赖检查，可为 `[]`），`dependencies` 声明对其他插件的依赖（支持 `"<id>@<semver-range>"`），`platforms` 声明适配平台（`desktop`/`mobile`）。
-   - **提供服务（`provides`）**：插件若注册了供其他插件注入的服务键，在此声明；其他条目的 `services` 即可引用这些键——CI 跨条目两遍校验（核心键白名单 ∪ 全体条目的 `provides`）。核心键白名单不在本仓库维护：它由 BBeBee 仓库从插件 manifest 生成（`packages/protocol/service-keys.json`），本仓库只保存 vendored 副本（`scripts/lib/service-keys.generated.json`，用 `node scripts/sync-service-keys.mjs` 同步）。
-   - **先发布，后提交**：CI 还会校验条目的 `npm` 包**已发布到公共 npm**（查 packument，404 即失败），并经 jsDelivr 拉取最新版的 `BBeBee.plugin.json` 与 `package.json` 核对内容（manifest 的 `id` 与条目 `id`、`package.json` 的 `name` 与条目 `npm` 字段必须一致，防冒充）。所以先 `npm publish`，再提条目 PR（详见 [CONTRIBUTING.md](CONTRIBUTING.md)）。
-   - **聚合索引**：`plugins/index.json` 是由 `scripts/build-index.mjs` 生成的提交文件，客户端只拉这一个文件做展示；`services` 与插件包内 `BBeBee.plugin.json` 的安全能力 `capabilities`（`fs:`/`net:`/`db:`…）是两个概念，不要混用。
+   - **提供服务（`provides`）**：插件若注册了供其他插件注入的服务键，在此声明；其他条目的 `services` 即可引用这些键——收集时只承认自身校验通过的条目。**门禁**：17 个关键核心键（`player`、`secrets`、`plugin-manager` 等，完整名单见 vendored 产物）保留给内置提供者，任何条目不得宣称提供；同一服务键全注册表最多一个提供者。核心键白名单不在本仓库维护：它由 BBeBee 仓库从插件 manifest 生成（`packages/protocol/service-keys.json`），本仓库只保存 vendored 副本（`scripts/lib/service-keys.generated.json`，用 `node scripts/sync-service-keys.mjs` 同步）。
+   - **官方的唯一定义**：条目 `repo` 的 owner 为 `BBeBeeX` 即官方（客户端徽标亦由此得出）；`bbebeex-` 前缀为官方保留，他人占用即被 CI 拒绝，官方条目只能由组织成员提交（CI 校验 PR 作者关联，`CODEOWNERS` 要求 @BBeBeeX 审核）。
+   - **先发布，后提交**：CI 还会校验条目的 `npm` 包**已发布到公共 npm**（查 packument，404 即失败），并经 jsDelivr 拉取校验版本（钉扎版本或最新版）的 `BBeBee.plugin.json` 与 `package.json` 核对内容：manifest 的 `id` 与条目 `id`、`package.json` 的 `name` 与条目 `npm` 字段必须一致（防冒充），且条目 `provides` 必须真实出现在 manifest 的 `contributes.services` 中（声明属实性交叉校验）。所以先 `npm publish`，再提条目 PR（详见 [CONTRIBUTING.md](CONTRIBUTING.md)）。此外 CI 每天定时在线 strict 复验一次，合并后的漂移（包被下架、钉扎失效等）会被自动抓出。
+   - **聚合索引**：`plugins/index.json` 是由 `scripts/build-index.mjs` 生成的提交文件，形态为 `{ "entries": [...], "blocked": [{ "id", "reason" }] }`，客户端只拉这一个文件做展示；`blocked` 是下架召回通道（数据源为仓库根目录 `blocklist.json`），客户端据此隔离已安装的被封插件。`services` 与插件包内 `BBeBee.plugin.json` 的安全能力 `capabilities`（`fs:`/`net:`/`db:`…）是两个概念，不要混用。
 3. **界面主题（Themes）**：
    - 存储路径：`themes/{author}-{name}/`
    - **内容进仓**：包含 `theme.json`（颜色设计 Token 定义）与 `preview.png`（预览图）。主题直接托管在本仓，无需 `repo`。必须通过 WCAG AA 对比度门禁与合法 `#hex` 校验。
@@ -37,8 +38,8 @@ B_Be_Bee-registry/
 ├── lyric-sources/
 │   └── {username}-{name}.json        # 歌词源元数据指针
 ├── plugins/
-│   ├── {username}-{pluginname}.json  # 插件元数据指针（schema v2：无 version，有 npm/services/platforms）
-│   └── index.json                    # 生成的聚合索引（scripts/build-index.mjs，提交到仓库）
+│   ├── <id>.json                     # 插件元数据指针（文件名即 id；schema v2：无 version，有 npm/services/platforms）
+│   └── index.json                    # 生成的聚合索引 { entries, blocked }（scripts/build-index.mjs，提交到仓库）
 ├── themes/
 │   └── {author}-{name}/              # 界面主题定义
 │       ├── theme.json                # 主题 Token 定义（含 tokens.dark / tokens.light）
@@ -48,13 +49,17 @@ B_Be_Bee-registry/
 │   ├── build-index.mjs               # 生成 plugins/index.json
 │   ├── sync-service-keys.mjs         # 同步 vendored 服务键白名单（自 BBeBee 生成产物）
 │   └── lib/                          # 校验规则与模型
-│       ├── schemas.ts                # 四类条目 schema（含插件依赖图校验）
+│       ├── schemas.ts                # 四类条目 schema（含插件依赖图、provides 门禁校验）
 │       ├── service-keys.ts           # 服务键白名单加载/新鲜度检查（数据在 service-keys.generated.json，vendored 自 BBeBee 生成产物）
 │       ├── semver-range.ts           # 手写 semver range 解析器（零依赖）
 │       ├── registry-model.ts         # 目录扫描
+│       ├── blocklist.ts              # 黑名单（blocklist.json）解析与命中匹配
+│       ├── plugin-index.ts           # 聚合索引计算（build-index 与 validate 共用）
 │       └── theme-contrast.ts         # 主题对比度门禁
+├── blocklist.json                    # 审核黑名单的机器载体（id/包名/账号/仓库 + reason）
+├── CODEOWNERS                        # 官方条目与校验机器的必审归属
 ├── .github/workflows/
-│   └── validate.yml                  # CI 自动校验工作流
+│   └── validate.yml                  # CI 自动校验工作流（含每日定时 strict 复验）
 ├── CONTRIBUTING.md                   # 贡献指南：Schema 规范与提交步骤
 ├── MODERATION.md                     # 审核标准、冒名处理与下架流程
 └── README.md                         # 本说明文件
