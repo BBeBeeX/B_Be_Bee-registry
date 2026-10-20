@@ -226,6 +226,109 @@ export function manifestConsistencyIssues(entry, manifest) {
   return errors
 }
 
+/* ── npm 出处证明（provenance）核对 ──────────────────────────────────── */
+
+export function npmAttestationsUrl(name, version) {
+  return `https://registry.npmjs.org/-/npm/v1/attestations/${encodeURIComponent(name)}@${encodeURIComponent(version)}`
+}
+
+/**
+ * Extracts the source repository an npm provenance attestation names,
+ * from the raw body of the attestations endpoint. The statement lives
+ * inside the Sigstore bundle's DSSE envelope: base64 JSON →
+ * `predicate.buildDefinition.externalParameters.workflow.repository`
+ * (the GitHub Actions workflow that built the package). Pure and
+ * exported for the negative test suite; any shape surprise yields
+ * undefined, never a throw. Only the repository identity is read —
+ * cryptographic verification of the bundle is out of scope (the
+ * endpoint is served over the registry's TLS, the same trust anchor
+ * as the packument itself).
+ */
+export function provenanceSourceRepo(body) {
+  try {
+    if (!body || typeof body !== 'object' || !Array.isArray(body.attestations)) return undefined
+    for (const att of body.attestations) {
+      if (!att || typeof att !== 'object' || att.predicateType !== 'https://slsa.dev/provenance/v1') {
+        continue
+      }
+      const payload = att.bundle?.dsseEnvelope?.payload
+      if (typeof payload !== 'string') continue
+      const statement = JSON.parse(Buffer.from(payload, 'base64').toString('utf8'))
+      const repo = statement?.predicate?.buildDefinition?.externalParameters?.workflow?.repository
+      if (typeof repo === 'string' && repo.trim()) return repo.trim()
+    }
+    return undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Judges a fetched attestations body against an OFFICIAL entry
+ * (repo owner BBeBeeX — the caller only invokes this for those).
+ * Pure and exported for the negative test suite.
+ *
+ *  - an attestation naming a DIFFERENT source repository than the
+ *    entry's `repo` is an error: the published bytes were built
+ *    somewhere the entry does not disclose;
+ *  - no attestation at all is a warning for now: the official
+ *    packages were first published locally (staged publishing) and
+ *    carry none — the warning states plainly that it becomes an
+ *    error once they have been re-published with provenance;
+ *  - a matching attestation is silent.
+ */
+export function provenanceIssues(entry, body) {
+  const errors = []
+  const warnings = []
+  const pkg = typeof entry?.npm === 'string' ? entry.npm : '?'
+  const source = provenanceSourceRepo(body)
+  if (!source) {
+    warnings.push(
+      `official package "${pkg}" has no npm provenance attestation （官方包尚无出处证明）: which repository built it cannot be verified — this warning becomes an error once the official packages have been re-published with provenance （待带 provenance 重发后转 error)`,
+    )
+    return { errors, warnings, status: 'missing' }
+  }
+  const a = parseGitHubRepo(source)
+  const b = parseGitHubRepo(typeof entry?.repo === 'string' ? entry.repo : '')
+  const same =
+    a && b && a.owner.toLowerCase() === b.owner.toLowerCase() && a.repo.toLowerCase() === b.repo.toLowerCase()
+  if (!same) {
+    errors.push(
+      `npm provenance for "${pkg}" names source repository "${source}" but the entry repo is ${JSON.stringify(entry?.repo ?? null)} — the published package was built by a different repository than the entry discloses`,
+    )
+    return { errors, warnings, status: 'mismatch' }
+  }
+  return { errors, warnings, status: 'verified' }
+}
+
+/**
+ * Fetches the attestations npm recorded for one exact package version.
+ * Mirrors fetchJsdelivrJson's result shape so callers can degrade
+ * network failures to warnings. npm answers 404 when the version
+ * carries no attestations at all — that is a definitive "none"
+ * (an empty attestation list), not a fetch failure.
+ */
+async function fetchNpmAttestations(name, version) {
+  const url = npmAttestationsUrl(name, version)
+  let res
+  try {
+    res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(8000) })
+  } catch (e) {
+    const reason =
+      e?.name === 'TimeoutError' || e?.name === 'AbortError'
+        ? 'timeout after 8s'
+        : (e?.cause?.code ?? e?.code ?? e?.message ?? 'network error')
+    return { ok: false, errorType: 'network', reason: String(reason) }
+  }
+  if (res.status === 404) return { ok: true, body: { attestations: [] } }
+  if (!res.ok) return { ok: false, errorType: 'http', status: res.status }
+  try {
+    return { ok: true, body: await res.json() }
+  } catch {
+    return { ok: false, errorType: 'invalid-json' }
+  }
+}
+
 /* ── 检查 npm 包内容（经 jsDelivr 取已发布文件） ───────────────────────── */
 
 export function jsdelivrFileUrl(name, version, file) {
@@ -538,6 +641,7 @@ export async function validateRegistry(root = repoRoot) {
         const check = await checkNpmPackage(pkg)
         let pin = null
         let content = null
+        let provenance = null
         if (check.exists) {
           pin = reviewedPinIssues(doc, check)
           if (pin.targetVersion) {
@@ -546,13 +650,21 @@ export async function validateRegistry(root = repoRoot) {
               fetchJsdelivrJson(pkg, pin.targetVersion, 'package.json'),
             ])
             content = { manifest, packageJson }
+            // 出处证明只对官方条目核对（repo owner 为 BBeBeeX，与
+            // officialEntryIssues 同一定义）：目标版本与内容校验一致
+            // （钉扎版优先，否则 latest）。
+            const repoOwner =
+              typeof doc?.repo === 'string' ? (parseGitHubRepo(doc.repo)?.owner ?? undefined) : undefined
+            if (repoOwner?.toLowerCase() === 'bbebeex') {
+              provenance = await fetchNpmAttestations(pkg, pin.targetVersion)
+            }
           }
         }
-        return { pkg, file, id, doc, check, pin, content }
+        return { pkg, file, id, doc, check, pin, content, provenance }
       }),
     )
 
-    for (const { pkg, file, id, doc, check, pin, content } of results) {
+    for (const { pkg, file, id, doc, check, pin, content, provenance } of results) {
       if (!check.exists) {
         if (check.errorType === 'network') {
           warn(`${file} [npm:${pkg}]: network unreachable (${check.reason}) (skipped in offline/sandbox environment)`)
@@ -571,6 +683,25 @@ export async function validateRegistry(root = repoRoot) {
       if (pin) {
         for (const e of pin.errors) err(`${file}: ${e}`)
         for (const w of pin.warnings) warn(`${file}: ${w}`)
+      }
+
+      // 出处证明（官方条目）：证明存在但来源仓与条目 repo 不符 →
+      // error；无证明 → warning（官方包带 provenance 重发后转
+      // error，文案内注明）；取证明失败与其它连通性检查同样降级。
+      if (provenance) {
+        if (!provenance.ok) {
+          if (provenance.errorType === 'network') {
+            warn(`${file} [npm:${pkg}]: network unreachable fetching provenance attestations (${provenance.reason}) (skipped in offline/sandbox environment)`)
+          } else if (provenance.errorType === 'invalid-json') {
+            warn(`${file} [npm:${pkg}]: provenance attestations response was not valid JSON — source repository not verified`)
+          } else {
+            warn(`${file} [npm:${pkg}]: npm returned HTTP ${provenance.status} for provenance attestations — source repository not verified`)
+          }
+        } else {
+          const issues = provenanceIssues(doc, provenance.body)
+          for (const e of issues.errors) err(`${file}: ${e}`)
+          for (const w of issues.warnings) warn(`${file}: ${w}`)
+        }
       }
 
       if (!pin || !pin.targetVersion) {
@@ -1658,6 +1789,101 @@ export async function runNegativeTests() {
         ]),
       ).map((i) => `${i.field}: ${i.message}`),
     )
+  }
+
+  // 46. Provenance: official entries are judged against the source
+  // repository their npm attestation names — match is silent, a
+  // foreign source is an error, no attestation is a (for now) warning.
+  {
+    const attestationsFor = (sourceRepo) => ({
+      attestations: [
+        {
+          predicateType: 'https://slsa.dev/provenance/v1',
+          bundle: {
+            dsseEnvelope: {
+              payload: Buffer.from(
+                JSON.stringify({
+                  _type: 'https://in-toto.io/Statement/v1',
+                  predicateType: 'https://slsa.dev/provenance/v1',
+                  predicate: {
+                    buildDefinition: {
+                      buildType: 'https://slsa-framework.github.io/github-actions-buildtypes/workflow/v1',
+                      externalParameters: {
+                        workflow: {
+                          ref: 'refs/heads/main',
+                          repository: sourceRepo,
+                          path: '.github/workflows/publish.yml',
+                        },
+                      },
+                    },
+                  },
+                }),
+                'utf8',
+              ).toString('base64'),
+            },
+          },
+        },
+      ],
+    })
+    const officialDoc = {
+      npm: '@bbebee/plugin-visualizer',
+      repo: 'https://github.com/BBeBeeX/BBeBee',
+    }
+
+    // Extraction reads through the publish attestation and any noise.
+    if (
+      provenanceSourceRepo(attestationsFor('https://github.com/BBeBeeX/BBeBee')) ===
+        'https://github.com/BBeBeeX/BBeBee' &&
+      provenanceSourceRepo({ attestations: [] }) === undefined &&
+      provenanceSourceRepo({ error: 'Not found' }) === undefined &&
+      provenanceSourceRepo(null) === undefined
+    ) {
+      console.log('  ✓ provenance source extraction (DSSE payload; junk → undefined)')
+      passed++
+    } else {
+      console.error('  ✗ provenance source extraction FAILED!')
+      failed++
+    }
+
+    const match = provenanceIssues(officialDoc, attestationsFor('https://github.com/bbebeex/bbebee'))
+    if (match.status === 'verified' && match.errors.length === 0 && match.warnings.length === 0) {
+      console.log('  ✓ provenance matching the entry repo passes silently')
+      passed++
+    } else {
+      console.error(`  ✗ provenance match FAILED! ${JSON.stringify(match)}`)
+      failed++
+    }
+
+    const foreign = provenanceIssues(officialDoc, attestationsFor('https://github.com/attacker/sneaky-builds'))
+    assertHasError('provenance naming a foreign source repo', foreign.errors, [
+      'provenance',
+      'attacker/sneaky-builds',
+      'different repository',
+    ])
+
+    const missing = provenanceIssues(officialDoc, { attestations: [] })
+    if (
+      missing.status === 'missing' &&
+      missing.errors.length === 0 &&
+      missing.warnings.some((w) => w.includes('尚无出处证明') && w.includes('转 error'))
+    ) {
+      console.log('  ✓ provenance missing warns (becomes an error after re-publication)')
+      passed++
+    } else {
+      console.error(`  ✗ provenance missing FAILED! ${JSON.stringify(missing)}`)
+      failed++
+    }
+
+    if (
+      npmAttestationsUrl('@bbebee/plugin-visualizer', '0.1.0') ===
+      'https://registry.npmjs.org/-/npm/v1/attestations/%40bbebee%2Fplugin-visualizer@0.1.0'
+    ) {
+      console.log('  ✓ npm attestations URL encoding sanity')
+      passed++
+    } else {
+      console.error('  ✗ npm attestations URL encoding FAILED!')
+      failed++
+    }
   }
 
   console.log(`\nNegative tests finished: ${passed} passed, ${failed} failed.`)

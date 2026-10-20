@@ -55,6 +55,7 @@
 2. `package.json` 的 `name` 必须等于注册表条目的 `npm` 字段，`BBeBee.plugin.json` 的 `id` 必须等于条目的 `id`，否则客户端拒绝安装（防冒充）；
 3. **版本号的唯一真相是 npm**：注册表条目不携带 `version` 字段；`package.json#version` 与 `BBeBee.plugin.json#version` 必须一致；
 4. v1 仅支持文本文件插件包（JS/JSON/CSS 等 UTF-8 文本）；二进制资源暂不支持。
+5. **官方条目（`repo` owner 为 `BBeBeeX`）的包必须带 npm 出处证明（provenance）发布**：provenance 是 npm 在发布时依据 GitHub Actions 的 OIDC 环境签发的来源声明（哪个仓库、哪个 workflow 构建了这个版本），事后无法补发。发布方式：在 npmjs.com 为包配置一次 **trusted publisher**（绑定 GitHub 组织 `BBeBeeX`、源仓库与 workflow 文件名，免长期 token），再由该仓库的发布 workflow 以 `id-token: write` 权限执行 `npm publish --provenance`。CI 对官方条目核对钉扎版本的 provenance：**证明存在但来源仓与条目 `repo` 不符 → error**；**暂无证明 → warning**（现行 0.1.0 系本地 staged 发布、无证明；官方包带 provenance 重发后该 warning 转为 error）。客户端安装时执行同一核对：来源不符按防冒充拒绝安装，来源相符在设置页标记"出处已验证"。非官方条目不查 provenance。
 
 ---
 
