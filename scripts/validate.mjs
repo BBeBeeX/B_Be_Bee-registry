@@ -87,7 +87,8 @@ export function npmPackumentUrl(name) {
  * Checks that a plugin entry's `npm` package exists on the public npm
  * registry (packument fetch). 404 means unpublished or misspelled; network
  * errors degrade to warnings exactly like the repo URL checks. On success
- * also returns `dist-tags.latest`, which the package-content check needs.
+ * returns `dist-tags.latest` plus a per-version map of `dist.integrity`
+ * values — the reviewed-pin check needs both.
  */
 async function checkNpmPackage(name) {
   const url = npmPackumentUrl(name)
@@ -111,9 +112,66 @@ async function checkNpmPackage(name) {
       body && typeof body === 'object' && typeof body['dist-tags']?.latest === 'string'
         ? body['dist-tags'].latest
         : undefined
-    return { exists: true, latest }
+    const versions = {}
+    if (body && typeof body === 'object' && body.versions && typeof body.versions === 'object') {
+      for (const [v, info] of Object.entries(body.versions)) {
+        versions[v] =
+          info && typeof info === 'object' && typeof info.dist?.integrity === 'string'
+            ? info.dist.integrity
+            : undefined
+      }
+    }
+    return { exists: true, latest, versions }
   }
   return { exists: false, errorType: 'http', status: res.status }
+}
+
+/**
+ * Reviewed-pin resolution for one plugin entry against a fetched
+ * packument. Pure and exported for the negative test suite.
+ *
+ * An entry may pin `reviewedVersion` + `reviewedIntegrity`: the version
+ * the registry has actually reviewed. The pin must still exist on npm
+ * and its dist.integrity must match the recorded value — a mismatch
+ * means the pinned bytes changed (or the pin was recorded wrongly) and
+ * is an error. When the pin holds, package-content checks run against
+ * the pinned version; a newer `latest` is only a warning ("unreviewed
+ * version available"), never an error. Unpinned entries keep the
+ * historical behaviour: content checks run against `latest`.
+ *
+ * @param doc parsed registry entry (only npm/reviewed* fields are read)
+ * @param packument { latest?: string, versions?: Record<string, string|undefined> }
+ * @returns {{ errors: string[], warnings: string[], targetVersion?: string }}
+ */
+export function reviewedPinIssues(doc, packument) {
+  const errors = []
+  const warnings = []
+  const pkg = typeof doc?.npm === 'string' ? doc.npm : '?'
+  const versions = packument?.versions ?? {}
+  const latest = packument?.latest
+  const pinned =
+    typeof doc?.reviewedVersion === 'string' && doc.reviewedVersion ? doc.reviewedVersion : undefined
+
+  if (!pinned) return { errors, warnings, targetVersion: latest }
+
+  if (!Object.prototype.hasOwnProperty.call(versions, pinned)) {
+    errors.push(
+      `entry pins reviewedVersion "${pinned}" but npm package "${pkg}" has no such version in its packument — the pin is stale or the version was unpublished`,
+    )
+    return { errors, warnings, targetVersion: undefined }
+  }
+  const actual = versions[pinned]
+  if (actual !== doc.reviewedIntegrity) {
+    errors.push(
+      `entry reviewedIntegrity does not match dist.integrity of "${pkg}@${pinned}" (entry records ${JSON.stringify(doc.reviewedIntegrity)}, npm reports ${JSON.stringify(actual ?? null)}) — the pinned bytes changed or the pin was recorded wrongly`,
+    )
+  }
+  if (latest && latest !== pinned) {
+    warnings.push(
+      `npm package "${pkg}" has unreviewed version ${latest} (entry pins reviewed ${pinned}) — content checks cover the reviewed version only`,
+    )
+  }
+  return { errors, warnings, targetVersion: pinned }
 }
 
 /* ── 检查 npm 包内容（经 jsDelivr 取已发布文件） ───────────────────────── */
@@ -226,6 +284,7 @@ export async function validateRegistry(root = repoRoot) {
             pkg: doc.npm.trim(),
             file: `${spec.dir}/${file}`,
             id: typeof doc.id === 'string' ? doc.id : undefined,
+            doc,
           })
         }
       }
@@ -316,21 +375,25 @@ export async function validateRegistry(root = repoRoot) {
   // （BBeBee.plugin.json 的 id 与 package.json 的 name 必须与条目一致）。
   if (!skipNetwork && npmPackages.size > 0) {
     const results = await Promise.all(
-      [...npmPackages].map(async ({ pkg, file, id }) => {
+      [...npmPackages].map(async ({ pkg, file, id, doc }) => {
         const check = await checkNpmPackage(pkg)
+        let pin = null
         let content = null
-        if (check.exists && check.latest) {
-          const [manifest, packageJson] = await Promise.all([
-            fetchJsdelivrJson(pkg, check.latest, 'BBeBee.plugin.json'),
-            fetchJsdelivrJson(pkg, check.latest, 'package.json'),
-          ])
-          content = { manifest, packageJson }
+        if (check.exists) {
+          pin = reviewedPinIssues(doc, check)
+          if (pin.targetVersion) {
+            const [manifest, packageJson] = await Promise.all([
+              fetchJsdelivrJson(pkg, pin.targetVersion, 'BBeBee.plugin.json'),
+              fetchJsdelivrJson(pkg, pin.targetVersion, 'package.json'),
+            ])
+            content = { manifest, packageJson }
+          }
         }
-        return { pkg, file, id, check, content }
+        return { pkg, file, id, doc, check, pin, content }
       }),
     )
 
-    for (const { pkg, file, id, check, content } of results) {
+    for (const { pkg, file, id, doc, check, pin, content } of results) {
       if (!check.exists) {
         if (check.errorType === 'network') {
           warn(`${file} [npm:${pkg}]: network unreachable (${check.reason}) (skipped in offline/sandbox environment)`)
@@ -344,13 +407,22 @@ export async function validateRegistry(root = repoRoot) {
         continue
       }
 
-      if (!check.latest) {
-        warn(`${file} [npm:${pkg}]: packument has no dist-tags.latest — published package content not verified`)
+      // 已审钉扎：钉扎版本必须仍在 npm 上且 integrity 与条目记录一致
+      // （篡改/记错即 error）；存在更新的 latest 只警告"有未审新版本"。
+      if (pin) {
+        for (const e of pin.errors) err(`${file}: ${e}`)
+        for (const w of pin.warnings) warn(`${file}: ${w}`)
+      }
+
+      if (!pin || !pin.targetVersion) {
+        if (!doc?.reviewedVersion && !check.latest) {
+          warn(`${file} [npm:${pkg}]: packument has no dist-tags.latest — published package content not verified`)
+        }
         continue
       }
       if (!content) continue
 
-      const label = `${pkg}@${check.latest}`
+      const label = `${pkg}@${pin.targetVersion}`
       for (const [fileName, res] of [
         ['BBeBee.plugin.json', content.manifest],
         ['package.json', content.packageJson],
@@ -1118,6 +1190,67 @@ export async function runNegativeTests() {
         (i) => `${i.field}: ${i.message}`,
       ),
     )
+  }
+
+  // 40. Reviewed pin: schema shape, pairing, and packument resolution
+  {
+    const SRI =
+      'sha512-yBDG+V+nWAUyksiRGbBbONbG9Anexa+Pb1hCYip6r8piErrhc/axWcthJQPXTHRTMzwzht6nbREKmShwm6r47w=='
+    assertHasError(
+      'reviewedVersion not semver',
+      pluginIssues(v2Plugin({ reviewedVersion: 'soon', reviewedIntegrity: SRI })),
+      ['reviewedVersion', 'semver'],
+    )
+    assertHasError(
+      'reviewedIntegrity not an SRI sha512',
+      pluginIssues(v2Plugin({ reviewedVersion: '1.0.0', reviewedIntegrity: 'md5-abc' })),
+      ['reviewedIntegrity', 'sha512'],
+    )
+    assertHasError(
+      'reviewed pin fields must come in pairs',
+      pluginIssues(v2Plugin({ reviewedVersion: '1.0.0' })),
+      ['reviewedVersion and reviewedIntegrity must be declared together'],
+    )
+    assertNoError(
+      'reviewed pin well-formed pair',
+      pluginIssues(v2Plugin({ reviewedVersion: '1.0.0', reviewedIntegrity: SRI })),
+    )
+
+    const packument = {
+      latest: '0.2.0',
+      versions: { '0.1.0': SRI, '0.2.0': 'sha512-AAAA' },
+    }
+    const pinnedDoc = { npm: '@alice/bbebee-plugin-plug', reviewedVersion: '0.1.0', reviewedIntegrity: SRI }
+
+    const okPin = reviewedPinIssues(pinnedDoc, packument)
+    if (
+      okPin.errors.length === 0 &&
+      okPin.targetVersion === '0.1.0' &&
+      okPin.warnings.some((w) => w.includes('unreviewed version 0.2.0'))
+    ) {
+      console.log('  ✓ reviewed pin holds (content target = pinned, latest warns)')
+      passed++
+    } else {
+      console.error(`  ✗ reviewed pin holds FAILED! ${JSON.stringify(okPin)}`)
+      failed++
+    }
+
+    const tampered = reviewedPinIssues({ ...pinnedDoc, reviewedIntegrity: 'sha512-BBBB' }, packument)
+    assertHasError('reviewed pin integrity tampered', tampered.errors, [
+      'reviewedIntegrity does not match dist.integrity',
+    ])
+
+    const gone = reviewedPinIssues({ ...pinnedDoc, reviewedVersion: '9.9.9' }, packument)
+    assertHasError('reviewed pin version unpublished', gone.errors, ['no such version'])
+
+    const unpinned = reviewedPinIssues({ npm: '@alice/bbebee-plugin-plug' }, packument)
+    if (unpinned.errors.length === 0 && unpinned.warnings.length === 0 && unpinned.targetVersion === '0.2.0') {
+      console.log('  ✓ unpinned entry keeps latest behaviour')
+      passed++
+    } else {
+      console.error(`  ✗ unpinned entry keeps latest behaviour FAILED! ${JSON.stringify(unpinned)}`)
+      failed++
+    }
   }
 
   console.log(`\nNegative tests finished: ${passed} passed, ${failed} failed.`)

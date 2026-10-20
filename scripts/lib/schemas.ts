@@ -65,7 +65,11 @@ export const PLUGIN_ALLOWED_FIELDS = [
   'id', 'name', 'repo', 'author', 'description', 'npm', 'services', 'provides',
   'platforms', 'category', 'dependencies', 'compositors', 'i18n',
   'minAppVersion', 'screenshot', 'engines', 'homepage',
+  'reviewedVersion', 'reviewedIntegrity',
 ] as const
+
+/** sha512 SRI string as npm reports it in dist.integrity ("sha512-…" + base64). */
+const SRI_SHA512 = /^sha512-[A-Za-z0-9+/]{86}={0,2}$/
 
 export interface ValidationIssue {
   field: string
@@ -354,6 +358,28 @@ export function validatePluginPointer(
     if (typeof meta.homepage !== 'string' || !/^https:\/\//.test(meta.homepage)) {
       at('homepage', 'must be an https:// URL when present')
     }
+  }
+
+  // reviewedVersion / reviewedIntegrity: the optional reviewed pin. CI
+  // verifies the pinned version exists on npm and its dist.integrity
+  // matches, and runs the package-content checks against the pinned
+  // version (a newer unreviewed `latest` only warns). The pair is only
+  // meaningful together.
+  if (meta.reviewedVersion !== undefined) {
+    if (typeof meta.reviewedVersion !== 'string' || !SEMVER.test(meta.reviewedVersion)) {
+      at('reviewedVersion', 'must be a semver string when present')
+    }
+  }
+  if (meta.reviewedIntegrity !== undefined) {
+    if (typeof meta.reviewedIntegrity !== 'string' || !SRI_SHA512.test(meta.reviewedIntegrity)) {
+      at('reviewedIntegrity', 'must be a sha512 SRI string ("sha512-…") when present')
+    }
+  }
+  if ((meta.reviewedVersion === undefined) !== (meta.reviewedIntegrity === undefined)) {
+    at(
+      'reviewedVersion',
+      'reviewedVersion and reviewedIntegrity must be declared together (a reviewed pin is only meaningful as a pair)',
+    )
   }
 
   return issues
