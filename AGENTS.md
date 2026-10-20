@@ -33,6 +33,11 @@ node scripts/validate.mjs --test
 
 # Regenerate the committed plugin index (CI fails if the committed copy is stale)
 node scripts/build-index.mjs
+
+# Refresh the vendored service-key allowlist from the BBeBee repo's generated artifact
+node scripts/sync-service-keys.mjs            # online, from GitHub raw (BBeBee main)
+node scripts/sync-service-keys.mjs --from <path-to-BBeBee>/packages/protocol/service-keys.json  # offline
+node scripts/sync-service-keys.mjs --check    # freshness check only (stale → exit 1)
 ```
 
 ---
@@ -48,7 +53,7 @@ Path: `music-sources/{username}-{name}.json` / `lyric-sources/{username}-{name}.
 
 ### 3.2 Plugins (schema v2)
 Path: `plugins/{username}-{pluginname}.json`
-- **Required**: `id`, `name`, `repo`, `author`, `description`, `npm` (npm package name), `services` (string[] of Cordis service keys the plugin injects — may be `[]`; a key is valid when it is a core key in `scripts/lib/service-keys.ts` **or** declared in another entry's `provides`), `platforms` (non-empty subset of `desktop`/`mobile`), `category`, `dependencies` (string[] of `"<id>"` or `"<id>@<semver-range>"`, may be `[]`), `compositors` (string[]), `i18n` (non-empty string[] of language tags, e.g. `["en", "zh"]`).
+- **Required**: `id`, `name`, `repo`, `author`, `description`, `npm` (npm package name), `services` (string[] of Cordis service keys the plugin injects — may be `[]`; a key is valid when it is a core key in the generated allowlist vendored at `scripts/lib/service-keys.generated.json` **or** declared in another entry's `provides`), `platforms` (non-empty subset of `desktop`/`mobile`), `category`, `dependencies` (string[] of `"<id>"` or `"<id>@<semver-range>"`, may be `[]`), `compositors` (string[]), `i18n` (non-empty string[] of language tags, e.g. `["en", "zh"]`).
 - **No `version` field**: removed in v2 — version truth lives on npm and inside the plugin package. Entries carrying `version` are rejected.
 - **No `capabilities` field**: renamed to `services` in v2. Do not confuse registry `services` (Cordis service dependencies) with the plugin's own `BBeBee.plugin.json` `capabilities` (security gate: `fs:`/`net:`/`db:`…).
 - **Dependency rules**: each id must resolve to an existing `plugins/<id>.json`; ranges use the hand-written parser in `scripts/lib/semver-range.ts` (subset: `*`, exact, `^`, `~`, comparators, `||`); dependency cycles fail validation.
@@ -76,4 +81,5 @@ Before finishing any change:
 - Plugin entries: the `npm` field must name a package that exists on the **public** npm registry (CI fetches the packument; 404 fails the build — publish to npm before submitting the entry). CI also verifies the published package content: the latest version's `BBeBee.plugin.json` `id` and `package.json` `name` (fetched via jsDelivr) must match the entry, otherwise the build fails.
 - `node scripts/validate.mjs --test` must pass all negative tests.
 - `node scripts/build-index.mjs` must leave `plugins/index.json` unchanged (CI enforces freshness via `git diff --exit-code`).
+- **Service-key allowlist has exactly one source of truth, and it is not this repo.** The valid core keys are generated in the BBeBee repo from its plugin manifests (union of `contributes.services` plus the shell's `SHELL_MANIFEST`) and committed there as `packages/protocol/service-keys.json`. This repo vendors a copy at `scripts/lib/service-keys.generated.json` (loaded by `scripts/lib/service-keys.ts`) — never edit either file's key set by hand. `node scripts/validate.mjs` compares the vendored copy against the upstream artifact when online: provably stale is an error, unreachable/unpublished upstream degrades to a warning. Refresh with `node scripts/sync-service-keys.mjs`.
 - `scripts/` stays at **zero npm dependencies** — pure Node builtins only.

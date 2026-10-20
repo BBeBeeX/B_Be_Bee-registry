@@ -1,0 +1,177 @@
+{
+  "vendoredFrom": {
+    "repo": "BBeBeeX/BBeBee",
+    "ref": "main",
+    "path": "packages/protocol/service-keys.json",
+    "url": "https://raw.githubusercontent.com/BBeBeeX/BBeBee/main/packages/protocol/service-keys.json"
+  },
+  "serviceKeys": [
+    "audio",
+    "audioConverter",
+    "background",
+    "cache",
+    "codec",
+    "contentRegistry",
+    "db",
+    "desktopLyrics",
+    "device",
+    "downloads",
+    "dsp",
+    "fs",
+    "http",
+    "i18n",
+    "inspector",
+    "js",
+    "library",
+    "logBuffer",
+    "lyricSources",
+    "lyrics",
+    "mediaSession",
+    "miniPlayer",
+    "nowPlaying",
+    "paths",
+    "player",
+    "plugin-manager",
+    "registryMetadata",
+    "scanner",
+    "secrets",
+    "securityAudit",
+    "settings",
+    "share",
+    "sleepTimer",
+    "sourceLocal",
+    "sources",
+    "store",
+    "theme",
+    "ui",
+    "visualizer"
+  ],
+  "providers": {
+    "audio": [
+      "@BBeBee/core-audio-mpv"
+    ],
+    "audioConverter": [
+      "@BBeBee/plugin-audio-converter"
+    ],
+    "background": [
+      "@BBeBee/core-background-expo",
+      "@BBeBee/core-background-tauri"
+    ],
+    "cache": [
+      "@BBeBee/plugin-cache"
+    ],
+    "codec": [
+      "@BBeBee/core-codec-node",
+      "@BBeBee/core-codec-rn"
+    ],
+    "contentRegistry": [
+      "@BBeBee/plugin-registry"
+    ],
+    "db": [
+      "@BBeBee/core-db-expo",
+      "@BBeBee/core-desktop-bridge"
+    ],
+    "desktopLyrics": [
+      "@BBeBee/plugin-desktop-lyrics"
+    ],
+    "device": [
+      "@BBeBee/core-device-expo",
+      "@BBeBee/core-device-tauri"
+    ],
+    "downloads": [
+      "@BBeBee/plugin-download"
+    ],
+    "dsp": [
+      "@BBeBee/plugin-dsp"
+    ],
+    "fs": [
+      "@BBeBee/core-desktop-bridge",
+      "@BBeBee/core-fs-expo"
+    ],
+    "http": [
+      "@BBeBee/core-http-node",
+      "@BBeBee/core-http-rn"
+    ],
+    "i18n": [
+      "@BBeBee/plugin-i18n"
+    ],
+    "inspector": [
+      "@BBeBee/plugin-inspector"
+    ],
+    "js": [
+      "@BBeBee/core-js-quickjs-node"
+    ],
+    "library": [
+      "@BBeBee/plugin-library"
+    ],
+    "logBuffer": [
+      "@BBeBee/plugin-log-buffer"
+    ],
+    "lyricSources": [
+      "@BBeBee/plugin-lyric-sources"
+    ],
+    "lyrics": [
+      "@BBeBee/plugin-lyrics"
+    ],
+    "mediaSession": [
+      "@BBeBee/core-media-session-rn",
+      "@BBeBee/core-media-session-tauri"
+    ],
+    "miniPlayer": [
+      "@BBeBee/plugin-mini-player"
+    ],
+    "nowPlaying": [
+      "@BBeBee/plugin-now-playing"
+    ],
+    "paths": [
+      "@BBeBee/core-desktop-bridge",
+      "@BBeBee/core-paths-expo"
+    ],
+    "player": [
+      "@BBeBee/plugin-player"
+    ],
+    "plugin-manager": [
+      "@BBeBee/plugin-manager"
+    ],
+    "registryMetadata": [
+      "@BBeBee/plugin-registry-metadata"
+    ],
+    "scanner": [
+      "@BBeBee/plugin-local-scanner"
+    ],
+    "secrets": [
+      "@BBeBee/core-secrets-expo",
+      "@BBeBee/core-secrets-node"
+    ],
+    "securityAudit": [
+      "@BBeBee/plugin-security-audit"
+    ],
+    "settings": [
+      "@BBeBee/plugin-settings"
+    ],
+    "share": [
+      "@BBeBee/plugin-share"
+    ],
+    "sleepTimer": [
+      "@BBeBee/plugin-sleep-timer"
+    ],
+    "sourceLocal": [
+      "@BBeBee/plugin-source-local"
+    ],
+    "sources": [
+      "@BBeBee/plugin-sources"
+    ],
+    "store": [
+      "@BBeBee/core-store-fs"
+    ],
+    "theme": [
+      "@BBeBee/plugin-theme"
+    ],
+    "ui": [
+      "@BBeBee/plugin-ui"
+    ],
+    "visualizer": [
+      "@BBeBee/plugin-visualizer"
+    ]
+  }
+}

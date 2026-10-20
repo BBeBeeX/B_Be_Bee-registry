@@ -14,6 +14,7 @@
  *   d. 主题 WCAG AA 对比度门禁与合法 #hex 颜色值校验，preview.png 存在性检查
  *   e. 同类 id 不重复
  *   f. repo 连通性检查（有网环境可达；离线/沙箱 EAI_AGAIN/ENOTFOUND 降级为警告）
+ *   g. 服务键白名单新鲜度（vendored 副本 vs BBeBee 上游生成产物；确认过期报错，上游不可达降级为警告）
  *
  * 零 npm 依赖；纯 Node 内置模块运行。
  */
@@ -33,6 +34,7 @@ import {
 } from './lib/schemas.ts'
 import { isValidRange, satisfies } from './lib/semver-range.ts'
 import { themeValidationIssues } from './lib/theme-contrast.ts'
+import { checkServiceKeysFreshness } from './lib/service-keys.ts'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const args = process.argv.slice(2)
@@ -355,6 +357,24 @@ export async function validateRegistry(root = repoRoot) {
           `${file}: npm package "${label}" package.json name ${JSON.stringify(content.packageJson.json?.name)} does not match the entry "npm" field "${pkg}"`,
         )
       }
+    }
+  }
+
+  // 服务键白名单新鲜度：白名单不在本仓库维护，而是 vendored 自 BBeBee
+  // 仓库的生成产物（scripts/lib/service-keys.generated.json）。能联网时
+  // 与上游比对：确认过期是错误；上游不可达/未发布则与其它连通性检查
+  // 一样降级为警告。--test 模式跳过，保证负向套件与环境无关。
+  if (!skipNetwork && !isTestMode) {
+    const fresh = await checkServiceKeysFreshness()
+    if (fresh.status === 'stale') {
+      const parts = []
+      if (fresh.added.length > 0) parts.push(`upstream-only: ${fresh.added.join(', ')}`)
+      if (fresh.removed.length > 0) parts.push(`vendored-only: ${fresh.removed.join(', ')}`)
+      err(
+        `service-keys: vendored allowlist is stale vs the BBeBee-generated artifact (${parts.join('; ')}) — run: node scripts/sync-service-keys.mjs`,
+      )
+    } else if (fresh.status === 'unverifiable') {
+      warn(`service-keys: freshness unverified (${fresh.reason}) (skipped in offline/sandbox environment)`)
     }
   }
 }

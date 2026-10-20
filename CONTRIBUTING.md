@@ -115,7 +115,7 @@
 | `npm` | ✅ | `string` | npm 包名（客户端从此下载，如 `"@alice/bbebee-plugin-foo"`） |
 | `author` | ✅ | `string` | 作者署名 |
 | `description` | ✅ | `string` | 插件功能说明 |
-| `services` | ✅ | `string[]` | 插件运行时必须注入的 **Cordis 服务键** 列表（如 `["player", "store"]`；可为 `[]`——纯事件型插件不注入任何服务。键必须能被满足：核心键见 `scripts/lib/service-keys.ts`，或由其他插件条目在 `provides` 中声明；无法满足的键会被 CI 拒绝） |
+| `services` | ✅ | `string[]` | 插件运行时必须注入的 **Cordis 服务键** 列表（如 `["player", "store"]`；可为 `[]`——纯事件型插件不注入任何服务。键必须能被满足：核心键以 BBeBee 仓库从插件 manifest 生成的清单为准（本仓库 vendored 副本在 `scripts/lib/service-keys.generated.json`，用 `node scripts/sync-service-keys.mjs` 同步，不要手工改），或由其他插件条目在 `provides` 中声明；无法满足的键会被 CI 拒绝） |
 | `provides` | ⚪ | `string[]` | 本插件对外提供的 **Cordis 服务键**（如本插件注册了供别人注入的服务，在此声明；其他条目即可在自己的 `services` 中引用。可为 `[]`，缺省视为不提供） |
 | `platforms` | ✅ | `string[]` | 适配平台（非空，值域 `desktop` / `mobile`） |
 | `category` | ✅ | `string` | 插件类别（必须匹配预定义枚举） |
