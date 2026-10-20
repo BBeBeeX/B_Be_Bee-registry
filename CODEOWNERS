@@ -1,0 +1,29 @@
+# CODEOWNERS — paths that require review from the BBeBeeX maintainers.
+#
+# Official content in this registry is defined by ONE rule: the entry's
+# repo owner is the GitHub account BBeBeeX (see MODERATION.md). The
+# files below either carry that official namespace or operate the
+# gates that protect it, so changes to them must be reviewed by the
+# account owner — a green CI run alone is not sufficient.
+#
+# NOTE: this file only takes effect together with branch protection
+# ("require review from Code Owners") in the repository settings;
+# enabling that is a platform-side step tracked outside this repo.
+
+# Official plugin entries (repo owner BBeBeeX)
+/plugins/bbebeex-*.json @BBeBeeX
+/plugins/bbebee-plugin-visualizer-meters.json @BBeBeeX
+
+# Validation, index and sync machinery
+/scripts/ @BBeBeeX
+
+# CI workflows
+/.github/ @BBeBeeX
+
+# The vendored service-key allowlist (generated in the BBeBee repo;
+# the sync path is a trust boundary — see scripts/sync-service-keys.mjs)
+/scripts/lib/service-keys.generated.json @BBeBeeX
+/scripts/lib/service-keys.ts @BBeBeeX
+
+# The moderation blocklist
+/blocklist.json @BBeBeeX

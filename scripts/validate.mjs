@@ -32,6 +32,7 @@ import {
   validatePluginProvidesGate,
   collectProvidedServiceKeys,
   collectValidProvidedServiceKeys,
+  parseGitHubRepo,
   PLUGIN_CATEGORIES,
   PLUGIN_COMPOSITORS,
 } from './lib/schemas.ts'
@@ -257,6 +258,49 @@ async function fetchJsdelivrJson(name, version, file) {
   }
 }
 
+/**
+ * Official-namespace gate for plugin entries. Pure and exported for
+ * the negative test suite.
+ *
+ * "Official" has exactly one definition (maintainer decision,
+ * 2026-10-20): the entry's repo owner is the GitHub account `BBeBeeX`.
+ * Nothing else — not the id prefix, not the author string — confers
+ * official status, and clients render the official badge from the
+ * repo owner alone. Two machine rules protect that definition:
+ *  1. The `bbebeex-` id prefix is reserved: an entry whose id starts
+ *     with it but whose repo owner is not BBeBeeX is an impersonation
+ *     attempt and is rejected outright (no PR context needed).
+ *  2. When CI supplies the PR author's association with the BBeBeeX
+ *     organization (BBEBEE_PR_AUTHOR_ASSOCIATION), an official entry
+ *     submitted by anyone who is not an org OWNER/MEMBER is rejected.
+ *     Local runs and direct pushes have no such context: the identity
+ *     half is then skipped, and the caller reports the skip — repo-owner
+ *     verification still applies.
+ *
+ * @param entries [{ file, id, owner }] for every plugin entry
+ * @param association GitHub author_association value, or undefined
+ */
+export function officialEntryIssues(entries, association) {
+  const errors = []
+  let officialCount = 0
+  const assoc = association?.trim().toUpperCase() || undefined
+  for (const { file, id, owner } of entries) {
+    const isOfficial = typeof owner === 'string' && owner.toLowerCase() === 'bbebeex'
+    if (isOfficial) officialCount++
+    if (typeof id === 'string' && id.toLowerCase().startsWith('bbebeex-') && !isOfficial) {
+      errors.push(
+        `${file}: plugin id "${id}" uses the reserved official prefix "bbebeex-" but its repo owner is ${JSON.stringify(owner ?? null)} — official means repo owner BBeBeeX, and the prefix may not be claimed by anyone else`,
+      )
+    }
+    if (isOfficial && assoc && assoc !== 'OWNER' && assoc !== 'MEMBER') {
+      errors.push(
+        `${file}: official entry (repo owner BBeBeeX) submitted with PR author association "${assoc}" — entries in the official namespace require a submitter who is an OWNER or MEMBER of the BBeBeeX organization`,
+      )
+    }
+  }
+  return { errors, officialCount, identityChecked: Boolean(assoc) }
+}
+
 /* ── 校验四类条目 ──────────────────────────────────────────────────────── */
 
 export async function validateRegistry(root = repoRoot) {
@@ -264,6 +308,7 @@ export async function validateRegistry(root = repoRoot) {
   const npmPackages = new Set()
   const idsByKind = new Map()
   const pluginDocs = new Map() // id → parsed doc, for cross-entry dependency checks
+  const pluginEntryRefs = [] // { file, id, owner } per plugin entry, for the official-namespace gate
 
   // 黑名单（blocklist.json）：MODERATION 黑名单政策的机器载体。命中任一
   // 类（插件 id / npm 包名 / GitHub 账号 / 仓库）的条目一律硬错误——
@@ -332,6 +377,15 @@ export async function validateRegistry(root = repoRoot) {
         }
 
         blocklistErrors(`${spec.dir}/${file}`, doc)
+
+        if (spec.kind === 'plugin' && doc && typeof doc === 'object' && !Array.isArray(doc)) {
+          pluginEntryRefs.push({
+            file: `${spec.dir}/${file}`,
+            id: typeof doc.id === 'string' ? doc.id : undefined,
+            owner:
+              typeof doc.repo === 'string' ? (parseGitHubRepo(doc.repo)?.owner ?? undefined) : undefined,
+          })
+        }
 
         if (doc && typeof doc.id === 'string') {
           const kindIds = idsByKind.get(spec.kind)
@@ -424,6 +478,24 @@ export async function validateRegistry(root = repoRoot) {
   {
     const issue = await pluginIndexConsistencyIssue(root)
     if (issue) err(issue)
+  }
+
+  // 官方命名空间门禁：官方 = repo owner 为 BBeBeeX（唯一标准）。
+  // `bbebeex-` 前缀被非官方 repo 占用 → 直接错误；CI 传入 PR 作者与
+  // 组织的关联（BBEBEE_PR_AUTHOR_ASSOCIATION）时，官方条目由非
+  // OWNER/MEMBER 提交 → 错误。本地/直推无此语境：身份半区跳过，
+  // 但必须在输出中注明（owner 校验本身不受影响）。
+  {
+    const association = process.env.BBEBEE_PR_AUTHOR_ASSOCIATION?.trim() || undefined
+    const official = officialEntryIssues(pluginEntryRefs, association)
+    for (const e of official.errors) err(e)
+    if (!official.identityChecked && official.officialCount > 0) {
+      console.log(
+        `[note] official-entry submitter check skipped for ${official.officialCount} official ` +
+          `entr${official.officialCount === 1 ? 'y' : 'ies'}: no PR author context in this environment ` +
+          `(CI passes BBEBEE_PR_AUTHOR_ASSOCIATION) — official status verified by repo owner only`,
+      )
+    }
   }
 
   // 连通性检查
@@ -1468,6 +1540,49 @@ export async function runNegativeTests() {
     } finally {
       await rm(root, { recursive: true, force: true })
     }
+  }
+
+  // 44. Official namespace: repo owner is the only definition of official
+  {
+    const official = [{ file: 'plugins/bbebeex-visualizer.json', id: 'bbebeex-visualizer', owner: 'BBeBeeX' }]
+
+    // A non-member submitting an official entry is rejected when CI
+    // supplies the PR author association.
+    assertHasError(
+      'official entry from a non-member submitter',
+      officialEntryIssues(official, 'CONTRIBUTOR').errors,
+      ['author association "CONTRIBUTOR"', 'OWNER or MEMBER'],
+    )
+    // Org members and owners pass; without context the identity half
+    // is skipped (reported by the caller), never silently failed.
+    assertNoError('official entry from an org member', officialEntryIssues(official, 'MEMBER').errors)
+    const noCtx = officialEntryIssues(official, undefined)
+    assertNoError('official entry without PR context skips identity check', noCtx.errors)
+    if (noCtx.officialCount === 1 && noCtx.identityChecked === false) {
+      console.log('  ✓ official gate reports the skipped identity check')
+      passed++
+    } else {
+      console.error(`  ✗ official gate context reporting FAILED! ${JSON.stringify(noCtx)}`)
+      failed++
+    }
+
+    // The audit's squatting shape: official prefix, someone else's repo.
+    assertHasError(
+      'official prefix claimed by a foreign repo',
+      officialEntryIssues(
+        [{ file: 'plugins/mallory-superplayer.json', id: 'bbebeex-superplayer', owner: 'mallory' }],
+        undefined,
+      ).errors,
+      ['reserved official prefix "bbebeex-"'],
+    )
+    // An ordinary third-party entry is untouched by the gate.
+    assertNoError(
+      'third-party entry untouched by the official gate',
+      officialEntryIssues(
+        [{ file: 'plugins/alice-plug.json', id: 'alice-plug', owner: 'alice' }],
+        'CONTRIBUTOR',
+      ).errors,
+    )
   }
 
   console.log(`\nNegative tests finished: ${passed} passed, ${failed} failed.`)
