@@ -174,6 +174,53 @@ export function reviewedPinIssues(doc, packument) {
   return { errors, warnings, targetVersion: pinned }
 }
 
+/**
+ * Cross-checks a registry entry's service declarations against the
+ * PUBLISHED package manifest (fetched via jsDelivr). Pure and exported
+ * for the negative test suite.
+ *
+ * Rules, calibrated against the real manifest structure of published
+ * BBeBee packages (BBeBee.plugin.json as the assembler emits it):
+ *  - `provides` must be truthful: every key the entry claims must be
+ *    registered in the manifest's `contributes.services`. (The reverse
+ *    is not required: a package may contribute services the entry does
+ *    not advertise.)
+ *  - `services` (the keys the plugin injects) has no manifest-side
+ *    declaration in today's manifest format — the demand lives in code.
+ *    When a manifest DOES declare an `inject` array, the entry's
+ *    `services` must match it exactly, in both directions.
+ */
+export function manifestConsistencyIssues(entry, manifest) {
+  const errors = []
+  const provides = Array.isArray(entry?.provides) ? entry.provides : []
+  const contributes =
+    manifest?.contributes && Array.isArray(manifest.contributes.services)
+      ? manifest.contributes.services
+      : []
+  for (const k of provides) {
+    if (typeof k === 'string' && !contributes.includes(k)) {
+      errors.push(
+        `entry declares provides "${k}" but the published BBeBee.plugin.json does not register it in contributes.services (found: ${contributes.length > 0 ? contributes.join(', ') : 'none'})`,
+      )
+    }
+  }
+  if (Array.isArray(manifest?.inject)) {
+    const injected = manifest.inject.filter((x) => typeof x === 'string')
+    const services = Array.isArray(entry?.services) ? entry.services : []
+    for (const s of services) {
+      if (typeof s === 'string' && !injected.includes(s)) {
+        errors.push(`entry declares services "${s}" but the published manifest's inject does not list it`)
+      }
+    }
+    for (const s of injected) {
+      if (!services.includes(s)) {
+        errors.push(`published manifest injects "${s}" but the entry does not declare it in services`)
+      }
+    }
+  }
+  return errors
+}
+
 /* ── 检查 npm 包内容（经 jsDelivr 取已发布文件） ───────────────────────── */
 
 export function jsdelivrFileUrl(name, version, file) {
@@ -448,6 +495,14 @@ export async function validateRegistry(root = repoRoot) {
         err(
           `${file}: npm package "${label}" package.json name ${JSON.stringify(content.packageJson.json?.name)} does not match the entry "npm" field "${pkg}"`,
         )
+      }
+      // 声明属实性交叉校验：条目宣称的 provides 必须真的在包内 manifest
+      // 的 contributes.services 中注册；manifest 若声明 inject 数组，
+      // 条目 services 必须与之双向一致。
+      if (content.manifest.ok) {
+        for (const msg of manifestConsistencyIssues(doc, content.manifest.json)) {
+          err(`${file}: npm package "${label}": ${msg}`)
+        }
       }
     }
   }
@@ -1251,6 +1306,51 @@ export async function runNegativeTests() {
       console.error(`  ✗ unpinned entry keeps latest behaviour FAILED! ${JSON.stringify(unpinned)}`)
       failed++
     }
+  }
+
+  // 41. Content cross-check: entry declarations vs the published manifest
+  {
+    // The real visualizer pair (shapes copied from the published 0.1.0
+    // manifests): entry provides must appear in contributes.services;
+    // a manifest without any contributes.services satisfies provides [].
+    assertNoError(
+      'manifest cross-check: visualizer shape passes',
+      manifestConsistencyIssues(
+        { provides: ['visualizer'], services: ['audio', 'player', 'settings', 'ui'] },
+        { contributes: { services: ['visualizer'] } },
+      ),
+    )
+    assertNoError(
+      'manifest cross-check: meters shape passes (no contributes.services)',
+      manifestConsistencyIssues(
+        { provides: [], services: ['visualizer'] },
+        { contributes: { slots: ['now-playing.visualizer'] } },
+      ),
+    )
+    assertHasError(
+      'manifest cross-check: provides not registered in the package',
+      manifestConsistencyIssues(
+        { provides: ['telepathy'], services: [] },
+        { contributes: { services: ['visualizer'] } },
+      ),
+      ['provides "telepathy"', 'does not register it'],
+    )
+    assertHasError(
+      'manifest cross-check: entry services missing from manifest inject',
+      manifestConsistencyIssues(
+        { provides: [], services: ['player', 'ghost'] },
+        { inject: ['player'] },
+      ),
+      ['services "ghost"', 'inject does not list it'],
+    )
+    assertHasError(
+      'manifest cross-check: manifest injects more than the entry declares',
+      manifestConsistencyIssues(
+        { provides: [], services: ['player'] },
+        { inject: ['player', 'secrets'] },
+      ),
+      ['injects "secrets"', 'does not declare it in services'],
+    )
   }
 
   console.log(`\nNegative tests finished: ${passed} passed, ${failed} failed.`)
