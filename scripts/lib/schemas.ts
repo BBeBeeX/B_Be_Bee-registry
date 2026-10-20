@@ -3,15 +3,38 @@
  *
  * Explicit validators for music-sources, lyric-sources, and plugins metadata pointers.
  * Unknown fields are strictly rejected.
+ *
+ * Plugin entries follow schema v2 (2026-10-20): no `version` field (version
+ * truth lives on npm + inside the plugin package), `services` replaces the
+ * old `capabilities` name, `npm` points at the npm package to download, and
+ * `platforms` declares supported platforms.
+ *
+ * An entry may also declare `provides`: the Cordis service keys the plugin
+ * itself registers for others. A `services` key is valid when it is a core
+ * key (scripts/lib/service-keys.ts) OR appears in some entry's `provides` —
+ * that cross-entry half is resolved by collectProvidedServiceKeys() and
+ * passed into validatePluginPointer() by the callers (validate.mjs,
+ * build-index.mjs), which scan all entries before validating any of them.
  */
+
+import { isKnownServiceKey } from './service-keys.ts'
+import { isValidRange } from './semver-range.ts'
 
 const SEMVER = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
+const LANG_TAG = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/
+/** Shape of a service key a plugin may claim to provide (letter first). */
+export const SERVICE_KEY_FORMAT = /^[A-Za-z][A-Za-z0-9-]*$/
 export const GITHUB_REPO = /^https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)(?:\/)?$/
+/** npm package name: optional @scope/, then name (npm naming rules). */
+const NPM_PACKAGE_NAME = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/
 
 export const SOURCE_ALLOWED_FIELDS = [
   'id', 'name', 'repo', 'author', 'description', 'version', 'minAppVersion', 'params',
+  'platforms',
 ] as const
+
+export const PLUGIN_PLATFORMS = ['desktop', 'mobile'] as const
 
 export const PLUGIN_CATEGORIES = [
   'ui-enhancement',
@@ -39,8 +62,8 @@ export const PLUGIN_COMPOSITORS = [
 ] as const
 
 export const PLUGIN_ALLOWED_FIELDS = [
-  'id', 'name', 'repo', 'author', 'description', 'capabilities',
-  'category', 'dependencies', 'compositors', 'i18n', 'version',
+  'id', 'name', 'repo', 'author', 'description', 'npm', 'services', 'provides',
+  'platforms', 'category', 'dependencies', 'compositors', 'i18n',
   'minAppVersion', 'screenshot', 'engines', 'homepage',
 ] as const
 
@@ -140,13 +163,45 @@ export function validateSourcePointer(
     }
   }
 
+  // platforms: optional, non-empty array of 'desktop' | 'mobile' (absent = all platforms)
+  const platformsIssue = validatePlatformsField(meta.platforms, false)
+  if (platformsIssue) at('platforms', platformsIssue)
+
   return issues
 }
 
 /**
- * Validates a plugin pointer metadata document.
+ * Validates a `platforms` field value. When `required` is true the field
+ * must be present and non-empty; otherwise it may be absent (all platforms).
  */
-export function validatePluginPointer(value: unknown, fileName: string): ValidationIssue[] {
+export function validatePlatformsField(value: unknown, required: boolean): string | undefined {
+  if (value === undefined) {
+    return required ? 'required, non-empty array of: desktop, mobile' : undefined
+  }
+  if (
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    !value.every((p) => typeof p === 'string' && (PLUGIN_PLATFORMS as readonly string[]).includes(p))
+  ) {
+    return `must be a non-empty array of: ${PLUGIN_PLATFORMS.join(', ')}`
+  }
+  return undefined
+}
+
+/**
+ * Validates a plugin pointer metadata document.
+ *
+ * @param extraServiceKeys additional valid `services` keys beyond the core
+ *   allowlist — the union of every registry entry's `provides` keys, as
+ *   collected by {@link collectProvidedServiceKeys}. Callers that validate
+ *   more than one entry must collect first and pass the set in; with no
+ *   extras only core service keys are accepted.
+ */
+export function validatePluginPointer(
+  value: unknown,
+  fileName: string,
+  extraServiceKeys?: ReadonlySet<string>,
+): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   const at = (field: string, message: string) => issues.push({ field, message })
 
@@ -163,7 +218,10 @@ export function validatePluginPointer(value: unknown, fileName: string): Validat
     }
   }
 
-  // Required: id, name, repo, author, description, capabilities, category, dependencies, compositors, i18n, version
+  // Required: id, name, repo, author, description, npm, services, platforms,
+  //           category, dependencies, compositors, i18n.
+  // NOTE: `version` was removed in schema v2 — version truth lives on npm
+  // and inside the plugin package. `capabilities` was renamed to `services`.
   if (typeof meta.id !== 'string' || !meta.id.trim()) {
     at('id', 'required')
   } else if (!SLUG.test(meta.id)) {
@@ -173,8 +231,12 @@ export function validatePluginPointer(value: unknown, fileName: string): Validat
   if (typeof meta.name !== 'string' || !meta.name.trim()) at('name', 'required')
   if (typeof meta.author !== 'string' || !meta.author.trim()) at('author', 'required')
   if (typeof meta.description !== 'string' || !meta.description.trim()) at('description', 'required')
-  if (typeof meta.version !== 'string' || !SEMVER.test(meta.version)) {
-    at('version', 'required, semver (e.g. "1.0.0")')
+
+  // npm: required npm package name (the package clients download)
+  if (typeof meta.npm !== 'string' || !meta.npm.trim()) {
+    at('npm', 'required — npm package name to download (e.g. "@alice/bbebee-plugin-foo")')
+  } else if (!NPM_PACKAGE_NAME.test(meta.npm.trim())) {
+    at('npm', `invalid npm package name ${JSON.stringify(meta.npm)}`)
   }
 
   // repo check
@@ -190,10 +252,43 @@ export function validatePluginPointer(value: unknown, fileName: string): Validat
     }
   }
 
-  // capabilities: string[]
-  if (!Array.isArray(meta.capabilities) || !meta.capabilities.every((c) => typeof c === 'string')) {
-    at('capabilities', 'required array of capability strings')
+  // services: required array of Cordis service keys this plugin injects
+  // (used for install-time dependency checks). May be empty [] — a pure
+  // event-driven plugin injects nothing. A key is valid when it is a core
+  // key (scripts/lib/service-keys.ts) or provided by another registry
+  // entry via `provides` (extraServiceKeys).
+  if (!Array.isArray(meta.services)) {
+    at('services', 'required array of Cordis service keys (may be empty [], e.g. ["player", "store"])')
+  } else {
+    for (const s of meta.services) {
+      if (typeof s !== 'string' || !s.trim()) {
+        at('services', 'must contain only non-empty strings')
+        break
+      }
+      if (!isKnownServiceKey(s) && !(extraServiceKeys && extraServiceKeys.has(s))) {
+        at(
+          'services',
+          `unknown Cordis service key "${s}" — must be a core key (scripts/lib/service-keys.ts) or provided by another plugin entry ("provides")`,
+        )
+      }
+    }
   }
+
+  // provides: optional array of service keys THIS plugin registers for other
+  // plugins to inject. Format-checked here; the cross-entry union that makes
+  // these keys valid in other entries' `services` is collectProvidedServiceKeys().
+  if (meta.provides !== undefined) {
+    if (
+      !Array.isArray(meta.provides) ||
+      !meta.provides.every((k) => typeof k === 'string' && SERVICE_KEY_FORMAT.test(k))
+    ) {
+      at('provides', 'must be an array of service keys (e.g. ["myService"]) when present')
+    }
+  }
+
+  // platforms: required non-empty array of 'desktop' | 'mobile'
+  const platformsIssue = validatePlatformsField(meta.platforms, true)
+  if (platformsIssue) at('platforms', platformsIssue)
 
   // category: enum
   if (typeof meta.category !== 'string') {
@@ -202,9 +297,18 @@ export function validatePluginPointer(value: unknown, fileName: string): Validat
     at('category', `invalid category "${meta.category}", must be one of: ${PLUGIN_CATEGORIES.join(', ')}`)
   }
 
-  // dependencies: string[] (can be empty array)
-  if (!Array.isArray(meta.dependencies) || !meta.dependencies.every((d) => typeof d === 'string')) {
-    at('dependencies', 'required array of dependency strings (can be empty array [])')
+  // dependencies: required array of "<registry-id>" or "<registry-id>@<semver-range>"
+  // (can be empty array []). Existence + cycle checks run in
+  // validatePluginDependencyGraph(), which sees all entries at once.
+  if (!Array.isArray(meta.dependencies)) {
+    at('dependencies', 'required array (can be empty array [])')
+  } else {
+    for (const d of meta.dependencies) {
+      const parsed = parsePluginDependency(d)
+      if (!parsed) {
+        at('dependencies', `invalid dependency ${JSON.stringify(d)} — expected "<id>" or "<id>@<semver-range>"`)
+      }
+    }
   }
 
   // compositors: string[], each in enum
@@ -218,9 +322,13 @@ export function validatePluginPointer(value: unknown, fileName: string): Validat
     }
   }
 
-  // i18n: boolean
-  if (typeof meta.i18n !== 'boolean') {
-    at('i18n', 'required boolean')
+  // i18n: non-empty string[] of language tags (e.g. ["en", "zh", "zh-CN"])
+  if (
+    !Array.isArray(meta.i18n) ||
+    meta.i18n.length === 0 ||
+    !meta.i18n.every((l) => typeof l === 'string' && LANG_TAG.test(l))
+  ) {
+    at('i18n', 'required non-empty array of language tags (e.g. ["en", "zh"])')
   }
 
   // Optional fields: minAppVersion, screenshot, engines, homepage
@@ -250,3 +358,123 @@ export function validatePluginPointer(value: unknown, fileName: string): Validat
 
   return issues
 }
+
+/**
+ * Collects the union of well-formed `provides` keys across plugin entries.
+ * Callers scan every entry first, then pass the result as `extraServiceKeys`
+ * to {@link validatePluginPointer} — that two-pass flow is what lets an
+ * entry's `services` reference a service another plugin provides. Malformed
+ * `provides` items are skipped here; they are reported by the per-entry
+ * format check in validatePluginPointer().
+ */
+export function collectProvidedServiceKeys(
+  entries: Iterable<Record<string, unknown>>,
+): Set<string> {
+  const keys = new Set<string>()
+  for (const doc of entries) {
+    if (!doc || !Array.isArray(doc.provides)) continue
+    for (const k of doc.provides) {
+      if (typeof k === 'string' && SERVICE_KEY_FORMAT.test(k)) keys.add(k)
+    }
+  }
+  return keys
+}
+
+export interface PluginDependency {
+  /** Registry id of the depended-upon plugin entry. */
+  id: string
+  /** Semver range, or null when the dependency pins no range (= latest). */
+  range: string | null
+}
+
+/**
+ * Parses one `dependencies` item: "<registry-id>" or "<registry-id>@<range>".
+ * Returns null when the item is malformed or the range is not in the
+ * supported semver grammar (see scripts/lib/semver-range.ts).
+ */
+export function parsePluginDependency(dep: unknown): PluginDependency | null {
+  if (typeof dep !== 'string' || !dep.trim()) return null
+  const text = dep.trim()
+  // Split on the LAST "@" so scoped ids (not used here, but harmless) keep working.
+  const atIndex = text.lastIndexOf('@')
+  let id: string
+  let range: string | null = null
+  if (atIndex <= 0) {
+    id = text
+  } else {
+    id = text.slice(0, atIndex)
+    range = text.slice(atIndex + 1).trim()
+    if (!range || !isValidRange(range)) return null
+  }
+  if (!SLUG.test(id)) return null
+  return { id, range }
+}
+
+/**
+ * Cross-entry plugin dependency checks: every dependency id must resolve to
+ * an existing `plugins/<id>.json` entry, and the dependency graph must be
+ * acyclic (DFS; a cycle fails the whole registry).
+ *
+ * @param entries map of plugin id → parsed entry document
+ */
+export function validatePluginDependencyGraph(
+  entries: Map<string, Record<string, unknown>>,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  const at = (field: string, message: string) => issues.push({ field, message })
+
+  // Build adjacency: id → dependency ids (only for resolvable, well-formed deps)
+  const edges = new Map<string, string[]>()
+  for (const [id, doc] of entries) {
+    const deps = Array.isArray(doc.dependencies) ? doc.dependencies : []
+    const targets: string[] = []
+    for (const d of deps) {
+      const parsed = parsePluginDependency(d)
+      if (!parsed) continue // malformed shape already reported per-entry
+      if (!entries.has(parsed.id)) {
+        at('dependencies', `plugin "${id}" depends on unknown plugin id "${parsed.id}"`)
+        continue
+      }
+      targets.push(parsed.id)
+    }
+    edges.set(id, targets)
+  }
+
+  // Cycle detection (iterative DFS with explicit stack for clear messages)
+  const WHITE = 0
+  const GRAY = 1
+  const BLACK = 2
+  const color = new Map<string, number>()
+  for (const id of entries.keys()) color.set(id, WHITE)
+
+  const visit = (start: string): void => {
+    const stack: Array<{ id: string; childIndex: number }> = [{ id: start, childIndex: 0 }]
+    color.set(start, GRAY)
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1]!
+      const children = edges.get(frame.id) ?? []
+      if (frame.childIndex < children.length) {
+        const child = children[frame.childIndex]!
+        frame.childIndex++
+        const childColor = color.get(child) ?? BLACK
+        if (childColor === GRAY) {
+          const cycle = [...stack.map((f) => f.id), child].join(' → ')
+          at('dependencies', `dependency cycle detected: ${cycle}`)
+        } else if (childColor === WHITE) {
+          color.set(child, GRAY)
+          stack.push({ id: child, childIndex: 0 })
+        }
+      } else {
+        color.set(frame.id, BLACK)
+        stack.pop()
+      }
+    }
+  }
+
+  for (const id of entries.keys()) {
+    if (color.get(id) === WHITE) visit(id)
+  }
+
+  return issues
+}
+

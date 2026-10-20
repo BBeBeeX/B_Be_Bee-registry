@@ -13,13 +13,16 @@ BBeBee 音乐播放器的**第三方内容注册表**：社区在这里发布与
    - **自定义服务器路径与参数（`params`）**：支持声明 `params: ["sourceurl", ...]`，允许用户在播放器中自定义修改服务器地址与路径（如自建 NAS/Navidrome 实例），客户端自动将其加入沙盒网络访问白名单。
 2. **插件（Plugins）**：
    - 存储路径：`plugins/{username}-{pluginname}.json`
-   - **纯元数据指针**：注册表不托管插件编译代码，`repo` 指向作者的 GitHub 仓库。
-   - **作者仓产物契约**：插件仓库根目录下必须提供 `index.js`（插件运行入口代码）与 `manifest.json`（插件清单与能力声明）。
+   - **纯元数据指针**：注册表不托管插件代码；条目的 `npm` 字段指向作者发布到 npm 的包，`repo` 指向作者的 GitHub 仓库。
+   - **版本真相在 npm**：条目不携带 `version` 字段；客户端从 npm packument 解析最新/符合依赖 range 的版本后下载安装。
+   - **依赖声明**：`services` 列出插件必须注入的 Cordis 服务键（安装前做服务依赖检查），`dependencies` 声明对其他插件的依赖（支持 `"<id>@<semver-range>"`），`platforms` 声明适配平台（`desktop`/`mobile`）。
+   - **聚合索引**：`plugins/index.json` 是由 `scripts/build-index.mjs` 生成的提交文件，客户端只拉这一个文件做展示；`services` 与插件包内 `BBeBee.plugin.json` 的安全能力 `capabilities`（`fs:`/`net:`/`db:`…）是两个概念，不要混用。
 3. **界面主题（Themes）**：
    - 存储路径：`themes/{author}-{name}/`
    - **内容进仓**：包含 `theme.json`（颜色设计 Token 定义）与 `preview.png`（预览图）。主题直接托管在本仓，无需 `repo`。必须通过 WCAG AA 对比度门禁与合法 `#hex` 校验。
 
-> **提示**：本仓库无 `dist/` 编译产物目录，无 `registry.json` 中心化大文件，客户端与工具链直接消费各类型目录下的独立 JSON 条目。
+> **提示**：本仓库无 `dist/` 编译产物目录；插件另有提交到仓库的聚合索引 `plugins/index.json`
+> （`scripts/build-index.mjs` 生成，CI 做新鲜度门禁），客户端展示插件菜单时只拉这一个文件。
 
 ---
 
@@ -32,14 +35,21 @@ B_Be_Bee-registry/
 ├── lyric-sources/
 │   └── {username}-{name}.json        # 歌词源元数据指针
 ├── plugins/
-│   └── {username}-{pluginname}.json  # 插件元数据指针
+│   ├── {username}-{pluginname}.json  # 插件元数据指针（schema v2：无 version，有 npm/services/platforms）
+│   └── index.json                    # 生成的聚合索引（scripts/build-index.mjs，提交到仓库）
 ├── themes/
 │   └── {author}-{name}/              # 界面主题定义
 │       ├── theme.json                # 主题 Token 定义（含 tokens.dark / tokens.light）
 │       └── preview.png               # 主题预览图
 ├── scripts/
 │   ├── validate.mjs                  # 全量校验门禁与负向测试套件
+│   ├── build-index.mjs               # 生成 plugins/index.json
 │   └── lib/                          # 校验规则与模型
+│       ├── schemas.ts                # 四类条目 schema（含插件依赖图校验）
+│       ├── service-keys.ts           # Cordis 服务键白名单（services 字段校验用）
+│       ├── semver-range.ts           # 手写 semver range 解析器（零依赖）
+│       ├── registry-model.ts         # 目录扫描
+│       └── theme-contrast.ts         # 主题对比度门禁
 ├── .github/workflows/
 │   └── validate.yml                  # CI 自动校验工作流
 ├── CONTRIBUTING.md                   # 贡献指南：Schema 规范与提交步骤

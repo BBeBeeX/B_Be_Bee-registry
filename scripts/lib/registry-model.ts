@@ -45,6 +45,8 @@ export async function scanFileEntries(dir: string): Promise<{ files: string[]; i
 
   for (const entry of entries) {
     if (entry.name === '.gitkeep') continue
+    // Generated aggregate index (see scripts/build-index.mjs) — not an entry.
+    if (entry.name === 'index.json') continue
     if (entry.isDirectory()) {
       issues.push(`${entry.name}: directories are not allowed here (entries must be .json files)`)
       continue

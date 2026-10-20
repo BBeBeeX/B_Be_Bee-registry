@@ -12,7 +12,7 @@
    ```
 2. **准备作者仓库产物**（源与插件）：
    - 源仓库根目录下提交 `index.json`；
-   - 插件仓库根目录下提交 `index.js` 与 `manifest.json`。
+   - 插件发布到 **npm**（包契约见 §3），注册表条目的 `npm` 字段指向该包。
 3. **添加注册表条目**：
    - 音乐源：新建 `music-sources/{username}-{name}.json`
    - 歌词源：新建 `lyric-sources/{username}-{name}.json`
@@ -46,7 +46,13 @@
 | 类型 | 作者仓根目录产物契约 | 说明 |
 |---|---|---|
 | **音乐源 / 歌词源** | `index.json` | 规则文档定义（包含 sourceUrl、各项 rule 规则配置及可执行函数声明） |
-| **插件** | `index.js` + `manifest.json` | `index.js` 为插件逻辑执行入口；`manifest.json` 声明插件元数据、所需权限及挂载点配置 |
+| **插件** | **npm 包**（见下方 npm 发布契约） | 注册表条目不再指向"作者仓根目录文件"，而是指向一个 **npm 包**（`npm` 字段）；客户端从 npm 下载 tarball 安装 |
+
+#### 插件 npm 发布契约：
+1. 包根目录必须包含 `BBeBee.plugin.json`（插件清单：id、服务声明、安全能力等），且 `package.json` 的 `files` 必须包含它；
+2. `package.json` 的 `name` 必须等于注册表条目的 `npm` 字段，`BBeBee.plugin.json` 的 `id` 必须等于条目的 `id`，否则客户端拒绝安装（防冒充）；
+3. **版本号的唯一真相是 npm**：注册表条目不携带 `version` 字段；`package.json#version` 与 `BBeBee.plugin.json#version` 必须一致；
+4. v1 仅支持文本文件插件包（JS/JSON/CSS 等 UTF-8 文本）；二进制资源暂不支持。
 
 ---
 
@@ -69,6 +75,7 @@
 | `version` | ✅ | `string` | semver 版本号（如 `1.0.0`） |
 | `minAppVersion` | ⚪ | `string` | 兼容的最低客户端 semver 版本号 |
 | `params` | ⚪ | `string[]` | 可配置参数键名列表（如 `["sourceurl", "username", "password"]`） |
+| `platforms` | ⚪ | `string[]` | 适配平台（值域 `desktop` / `mobile`；缺省=全平台） |
 
 #### `params` 可配置参数与自定义服务器路径说明：
 对于需要用户连接自建实例或提供自定义配置的音源（例如 Subsonic、Navidrome、Jellyfin 或 WebDAV 源），可在条目中声明 `params` 字符串数组：
@@ -98,25 +105,54 @@
 ### 4.2 插件（`plugins/`）
 
 - 路径：`plugins/{username}-{pluginname}.json`
-- 纯指针元数据。
+- 纯指针元数据（schema v2：无 `version` 字段，版本真相在 npm）。
 
 | 字段 | 必填 | 类型 | 说明 |
 |---|---|---|---|
 | `id` | ✅ | `string` | 唯一标识符，小写连字符 slug |
 | `name` | ✅ | `string` | 插件显示名称 |
 | `repo` | ✅ | `string` | 作者 GitHub 仓库主页，必须为 `https://github.com/<owner>/<repo>` |
+| `npm` | ✅ | `string` | npm 包名（客户端从此下载，如 `"@alice/bbebee-plugin-foo"`） |
 | `author` | ✅ | `string` | 作者署名 |
 | `description` | ✅ | `string` | 插件功能说明 |
-| `capabilities` | ✅ | `string[]` | 申请的能力权限列表 |
+| `services` | ✅ | `string[]` | 插件运行时必须注入的 **Cordis 服务键** 列表（如 `["player", "store"]`；可为 `[]`——纯事件型插件不注入任何服务。键必须能被满足：核心键见 `scripts/lib/service-keys.ts`，或由其他插件条目在 `provides` 中声明；无法满足的键会被 CI 拒绝） |
+| `provides` | ⚪ | `string[]` | 本插件对外提供的 **Cordis 服务键**（如本插件注册了供别人注入的服务，在此声明；其他条目即可在自己的 `services` 中引用。可为 `[]`，缺省视为不提供） |
+| `platforms` | ✅ | `string[]` | 适配平台（非空，值域 `desktop` / `mobile`） |
 | `category` | ✅ | `string` | 插件类别（必须匹配预定义枚举） |
-| `dependencies` | ✅ | `string[]` | 依赖的其他插件 ID 列表（无依赖填写空数组 `[]`） |
+| `dependencies` | ✅ | `string[]` | 依赖的其他插件：`"<registry-id>"` 或 `"<registry-id>@<semver-range>"`（如 `"bob-dsp-pack@^2.0.0"`；无依赖填 `[]`）。id 必须对应已存在的条目；依赖成环会被 CI 拒绝 |
 | `compositors` | ✅ | `string[]` | 挂载的原生 UI 插槽列表（必须匹配预定义枚举） |
-| `i18n` | ✅ | `boolean` | 是否支持国际化多语言 |
-| `version` | ✅ | `string` | semver 版本号（如 `1.0.0`） |
+| `i18n` | ✅ | `string[]` | 插件 UI 支持的语言标签列表（非空，如 `["en", "zh"]`） |
 | `minAppVersion` | ⚪ | `string` | 兼容的最低客户端 semver 版本 |
 | `screenshot` | ⚪ | `string` | 预览截图 URL（必须以 `https://` 开头） |
 | `engines` | ⚪ | `object` | 引擎版本约束对象（如 `{ "bbebee": ">=0.1.0" }`） |
 | `homepage` | ⚪ | `string` | 项目主页 URL（必须以 `https://` 开头） |
+
+> ⚠️ **概念区分**：注册表条目的 `services`（本表）声明的是插件**依赖注入哪些 Cordis 服务**
+> （运行时 `inject` 的服务键，用于安装前做服务依赖检查）；而插件自身 `BBeBee.plugin.json`
+> 里的 `capabilities` 是**安全能力门禁**（`fs:read:own`、`net:host/*`、`db:own`…，定义见 BBeBee
+> 仓库 `docs/plugins/capabilities.md`）。两者名字在旧版注册表中撞过，v2 起注册表侧统一叫
+> `services`，**不要混用**——注册表条目里写 `capabilities` 会被未知字段拦截直接拒绝。
+
+#### 插件条目示例（v2）：
+```json
+{
+  "id": "alice-visualizer-pro",
+  "name": "Visualizer Pro",
+  "repo": "https://github.com/alice/bbebee-visualizer-pro",
+  "npm": "@alice/bbebee-plugin-visualizer-pro",
+  "author": "alice",
+  "description": "Spectrum visualizer with custom themes.",
+  "services": ["player", "store", "settings"],
+  "platforms": ["desktop"],
+  "category": "ui-enhancement",
+  "dependencies": ["bob-dsp-pack@^2.0.0"],
+  "compositors": ["now-playing.visualizer"],
+  "i18n": ["en", "zh"],
+  "minAppVersion": "0.5.0",
+  "screenshot": "https://…/shot.png",
+  "homepage": "https://alice.dev/viz-pro"
+}
+```
 
 #### `category` 允许枚举值：
 - `ui-enhancement`（界面美化与增强）
@@ -165,4 +201,13 @@
 
 ## 5. 版本更新规则
 
-任何功能修改、配置变动均必须递增 `version`（遵循 SemVer 规则：大改升 major，加特性升 minor，修数据升 patch）。客户端依靠版本比对提示用户更新。
+- **源与主题**：任何功能修改、配置变动均必须递增条目中的 `version`（遵循 SemVer：大改升 major，加特性升 minor，修数据升 patch）。客户端依靠版本比对提示用户更新。
+- **插件**：注册表条目**不携带 `version`**；版本管理完全走 npm——发布新版即 `npm publish` 递增 `package.json#version`
+  （并同步 `BBeBee.plugin.json#version`），客户端通过 npm packument 检查更新。修改注册表条目元数据
+  （如改描述、加 `services`）不需要"发版"，直接提 PR 更新条目 JSON 即可。
+- `plugins/index.json` 是生成的聚合索引（`node scripts/build-index.mjs`），提交条目 PR 时如
+  CI 报 index 过期，本地运行一次该命令重新生成后一起提交。
+- **npm 包存在性与内容**：CI 会检查插件条目的 `npm` 字段是否对应 npm 上已发布的**公开**包
+  （404 即失败），并拉取该包**最新版**的 `BBeBee.plugin.json` 与 `package.json`（经 jsDelivr）
+  核对：manifest 的 `id` 必须等于条目 `id`、`package.json` 的 `name` 必须等于条目 `npm` 字段，
+  不一致即失败。提交注册表 PR 前请先 `npm publish`，包名拼错、私有包、发错包都会被拒绝。

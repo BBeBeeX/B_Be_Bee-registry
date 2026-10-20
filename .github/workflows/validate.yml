@@ -22,3 +22,12 @@ jobs:
 
       - name: Validate registry entries
         run: node scripts/validate.mjs
+
+      - name: Negative test suite
+        run: node scripts/validate.mjs --test
+
+      - name: Plugin index freshness gate
+        # plugins/index.json is generated AND committed: regeneration must be a no-op.
+        run: |
+          node scripts/build-index.mjs
+          git diff --exit-code plugins/index.json
