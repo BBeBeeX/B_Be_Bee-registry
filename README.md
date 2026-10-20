@@ -15,7 +15,9 @@ BBeBee 音乐播放器的**第三方内容注册表**：社区在这里发布与
    - 存储路径：`plugins/{username}-{pluginname}.json`
    - **纯元数据指针**：注册表不托管插件代码；条目的 `npm` 字段指向作者发布到 npm 的包，`repo` 指向作者的 GitHub 仓库。
    - **版本真相在 npm**：条目不携带 `version` 字段；客户端从 npm packument 解析最新/符合依赖 range 的版本后下载安装。
-   - **依赖声明**：`services` 列出插件必须注入的 Cordis 服务键（安装前做服务依赖检查），`dependencies` 声明对其他插件的依赖（支持 `"<id>@<semver-range>"`），`platforms` 声明适配平台（`desktop`/`mobile`）。
+   - **依赖声明**：`services` 列出插件必须注入的 Cordis 服务键（安装前做服务依赖检查，可为 `[]`），`dependencies` 声明对其他插件的依赖（支持 `"<id>@<semver-range>"`），`platforms` 声明适配平台（`desktop`/`mobile`）。
+   - **提供服务（`provides`）**：插件若注册了供其他插件注入的服务键，在此声明；其他条目的 `services` 即可引用这些键——CI 跨条目两遍校验（核心键白名单 ∪ 全体条目的 `provides`）。
+   - **先发布，后提交**：CI 还会校验条目的 `npm` 包**已发布到公共 npm**（查 packument，404 即失败），并经 jsDelivr 拉取最新版的 `BBeBee.plugin.json` 与 `package.json` 核对内容（manifest 的 `id` 与条目 `id`、`package.json` 的 `name` 与条目 `npm` 字段必须一致，防冒充）。所以先 `npm publish`，再提条目 PR（详见 [CONTRIBUTING.md](CONTRIBUTING.md)）。
    - **聚合索引**：`plugins/index.json` 是由 `scripts/build-index.mjs` 生成的提交文件，客户端只拉这一个文件做展示；`services` 与插件包内 `BBeBee.plugin.json` 的安全能力 `capabilities`（`fs:`/`net:`/`db:`…）是两个概念，不要混用。
 3. **界面主题（Themes）**：
    - 存储路径：`themes/{author}-{name}/`
