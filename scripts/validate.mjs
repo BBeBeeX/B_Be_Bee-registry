@@ -14,7 +14,7 @@
  *   d. 主题 WCAG AA 对比度门禁与合法 #hex 颜色值校验，preview.png 存在性检查
  *   e. 同类 id 不重复
  *   f. repo 连通性检查（有网环境可达；离线/沙箱 EAI_AGAIN/ENOTFOUND 降级为警告）
- *   g. 服务键白名单新鲜度（vendored 副本 vs BBeBee 上游生成产物；确认过期报错，上游不可达降级为警告）
+ *   g. 服务键白名单新鲜度（vendored 副本 vs BBeBee 上游生成产物；确认过期报错，上游 404 报错，仅网络不可达降级为警告）
  *
  * 零 npm 依赖；纯 Node 内置模块运行。
  */
@@ -34,7 +34,7 @@ import {
 } from './lib/schemas.ts'
 import { isValidRange, satisfies } from './lib/semver-range.ts'
 import { themeValidationIssues } from './lib/theme-contrast.ts'
-import { checkServiceKeysFreshness } from './lib/service-keys.ts'
+import { checkServiceKeysFreshness, parseServiceKeysArtifact } from './lib/service-keys.ts'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const args = process.argv.slice(2)
@@ -370,11 +370,21 @@ export async function validateRegistry(root = repoRoot) {
       const parts = []
       if (fresh.added.length > 0) parts.push(`upstream-only: ${fresh.added.join(', ')}`)
       if (fresh.removed.length > 0) parts.push(`vendored-only: ${fresh.removed.join(', ')}`)
+      if (fresh.criticalAdded.length > 0)
+        parts.push(`critical upstream-only: ${fresh.criticalAdded.join(', ')}`)
+      if (fresh.criticalRemoved.length > 0)
+        parts.push(`critical vendored-only: ${fresh.criticalRemoved.join(', ')}`)
       err(
         `service-keys: vendored allowlist is stale vs the BBeBee-generated artifact (${parts.join('; ')}) — run: node scripts/sync-service-keys.mjs`,
       )
+    } else if (fresh.status === 'missing') {
+      // 上游生成产物 404：单一事实来源消失了。这与"网络不可达"性质
+      // 不同——继续用陈旧副本静默放行会让白名单无限期过期，必须报错。
+      err(
+        `service-keys: upstream artifact is missing (${fresh.reason}) — the BBeBee-generated source of truth was moved or deleted; restore it upstream instead of trusting the vendored copy`,
+      )
     } else if (fresh.status === 'unverifiable') {
-      warn(`service-keys: freshness unverified (${fresh.reason}) (skipped in offline/sandbox environment)`)
+      warn(`service-keys: freshness could not be verified (${fresh.reason}); vendored copy used as-is`)
     }
   }
 }
@@ -978,6 +988,40 @@ export async function runNegativeTests() {
       passed++
     } else {
       console.error('  ✗ jsDelivr file URL encoding sanity FAILED!')
+      failed++
+    }
+  }
+
+  // 37. Service-keys artifact parsing: format / dedupe / non-empty / critical subset
+  {
+    const good = parseServiceKeysArtifact(
+      { serviceKeys: ['player', 'audio', 'player'], criticalKeys: ['player'], providers: {} },
+      'test',
+    )
+    const checks = [
+      good.serviceKeys.join(',') === 'player,audio', // duplicates dropped, order kept
+      good.criticalKeys.join(',') === 'player',
+    ]
+    const throws = (raw) => {
+      try {
+        parseServiceKeysArtifact(raw, 'test')
+        return false
+      } catch {
+        return true
+      }
+    }
+    checks.push(
+      throws({ serviceKeys: [] }), // empty allowlist must fail loudly
+      throws({ serviceKeys: ['bad key!'] }), // malformed key format
+      throws({ serviceKeys: ['player'], criticalKeys: ['notAKey'] }), // critical ⊄ keys
+      throws({ serviceKeys: 'player' }), // not an array
+      throws(null),
+    )
+    if (checks.every(Boolean)) {
+      console.log('  ✓ service-keys artifact parsing (dedupe, format, critical subset)')
+      passed++
+    } else {
+      console.error('  ✗ service-keys artifact parsing FAILED!')
       failed++
     }
   }

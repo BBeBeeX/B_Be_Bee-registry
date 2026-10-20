@@ -21,8 +21,16 @@
  *
  * `validate.mjs` additionally checks freshness when it can reach the
  * network: a vendored copy that provably differs from the upstream
- * artifact is an error; an unreachable or unpublished upstream degrades
- * to a warning, exactly like the other connectivity checks.
+ * artifact is an error; an upstream that answers 404 is also an error
+ * (the generated file was moved or deleted — the source of truth is
+ * gone, which must never pass silently); only a genuinely unreachable
+ * network degrades to a warning.
+ *
+ * The artifact also carries `criticalKeys`: the subset of core keys
+ * whose providers are security-critical (credentials, code execution,
+ * the data layer, the plugin system itself…). Registry entries may
+ * never claim a critical key in `provides` — see the provides gate in
+ * scripts/lib/schemas.ts (validatePluginProvidesGate).
  *
  * ── Verified finding (2026-10-20), still load-bearing ──────────────────
  * The allowlist is intentionally NOT derived from
@@ -45,7 +53,37 @@ export const SERVICE_KEYS_UPSTREAM_URL =
 
 export interface ServiceKeysArtifact {
   serviceKeys: string[]
+  criticalKeys: string[]
   providers: Record<string, string[]>
+}
+
+/** Shape of a Cordis service key (letter first, then letters/digits/hyphens). */
+const SERVICE_KEY_FORMAT = /^[A-Za-z][A-Za-z0-9-]*$/
+
+/**
+ * Validates one key list of an artifact: must be an array of well-formed
+ * service keys. Duplicates are dropped (order preserved); anything else
+ * throws — a malformed allowlist must fail loudly, never silently
+ * validate everything or nothing.
+ */
+function parseKeyList(value: unknown, field: string, origin: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`service-keys artifact from ${origin} has no valid "${field}" array`)
+  }
+  const keys: string[] = []
+  const seen = new Set<string>()
+  for (const k of value) {
+    if (typeof k !== 'string' || !SERVICE_KEY_FORMAT.test(k)) {
+      throw new Error(
+        `service-keys artifact from ${origin} has an invalid "${field}" entry ${JSON.stringify(k)}`,
+      )
+    }
+    if (!seen.has(k)) {
+      seen.add(k)
+      keys.push(k)
+    }
+  }
+  return keys
 }
 
 /**
@@ -58,12 +96,23 @@ export function parseServiceKeysArtifact(raw: unknown, origin: string): ServiceK
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new Error(`service-keys artifact from ${origin} is not an object`)
   }
-  const doc = raw as { serviceKeys?: unknown; providers?: unknown }
-  if (
-    !Array.isArray(doc.serviceKeys) ||
-    doc.serviceKeys.some((k) => typeof k !== 'string' || !k)
-  ) {
-    throw new Error(`service-keys artifact from ${origin} has no valid "serviceKeys" string array`)
+  const doc = raw as { serviceKeys?: unknown; criticalKeys?: unknown; providers?: unknown }
+  const serviceKeys = parseKeyList(doc.serviceKeys, 'serviceKeys', origin)
+  if (serviceKeys.length === 0) {
+    throw new Error(`service-keys artifact from ${origin} has an empty "serviceKeys" list`)
+  }
+  // criticalKeys is optional for backward compatibility with artifacts
+  // generated before it existed, but when present every critical key
+  // must also be a member of the full key set.
+  const criticalKeys =
+    doc.criticalKeys === undefined ? [] : parseKeyList(doc.criticalKeys, 'criticalKeys', origin)
+  const keySet = new Set(serviceKeys)
+  for (const k of criticalKeys) {
+    if (!keySet.has(k)) {
+      throw new Error(
+        `service-keys artifact from ${origin} lists critical key "${k}" that is not in "serviceKeys"`,
+      )
+    }
   }
   const providers: Record<string, string[]> = {}
   if (doc.providers && typeof doc.providers === 'object' && !Array.isArray(doc.providers)) {
@@ -73,7 +122,7 @@ export function parseServiceKeysArtifact(raw: unknown, origin: string): ServiceK
       }
     }
   }
-  return { serviceKeys: [...(doc.serviceKeys as string[])], providers }
+  return { serviceKeys, criticalKeys, providers }
 }
 
 /** The vendored artifact this repository validates against. */
@@ -125,17 +174,41 @@ export function isKnownServiceKey(key: unknown): key is string {
   return typeof key === 'string' && KEY_SET.has(key)
 }
 
+/**
+ * The critical subset of core keys (credentials, code execution, data
+ * layer, plugin system…). Registry entries may never provide these;
+ * their providers are builtin and locked on (see the provides gate).
+ */
+export const CRITICAL_SERVICE_KEYS: readonly string[] = vendoredArtifact?.criticalKeys ?? []
+
+const CRITICAL_KEY_SET = new Set<string>(CRITICAL_SERVICE_KEYS)
+
+/** Returns true when `key` is a critical core service key. */
+export function isCriticalServiceKey(key: unknown): key is string {
+  requireVendoredArtifact()
+  return typeof key === 'string' && CRITICAL_KEY_SET.has(key)
+}
+
 export type ServiceKeysFreshness =
   | { status: 'fresh' }
-  | { status: 'stale'; added: string[]; removed: string[] }
+  | {
+      status: 'stale'
+      added: string[]
+      removed: string[]
+      criticalAdded: string[]
+      criticalRemoved: string[]
+    }
+  | { status: 'missing'; reason: string }
   | { status: 'unverifiable'; reason: string }
 
 /**
- * Compares the vendored key set against the upstream artifact in the
- * BBeBee repo. Only a positively-known difference is `stale`: an
- * unreachable network, an unpublished/moved upstream file (HTTP error),
- * or a malformed upstream body all degrade to `unverifiable`, mirroring
- * how validate.mjs treats connectivity failures elsewhere.
+ * Compares the vendored key sets (serviceKeys and criticalKeys) against
+ * the upstream artifact in the BBeBee repo. Only a positively-known
+ * difference is `stale`. An upstream 404 is reported separately as
+ * `missing`: the generated source of truth was moved or deleted, which
+ * callers must treat as an error rather than let the vendored copy age
+ * in silence. A genuinely unreachable network or a malformed upstream
+ * body degrades to `unverifiable`.
  */
 export async function checkServiceKeysFreshness(): Promise<ServiceKeysFreshness> {
   requireVendoredArtifact()
@@ -153,6 +226,12 @@ export async function checkServiceKeysFreshness(): Promise<ServiceKeysFreshness>
         : (err?.cause?.code ?? err?.code ?? err?.message ?? 'network error')
     return { status: 'unverifiable', reason: String(reason) }
   }
+  if (res.status === 404) {
+    return {
+      status: 'missing',
+      reason: `HTTP 404 from ${SERVICE_KEYS_UPSTREAM_URL} — the generated artifact is gone upstream`,
+    }
+  }
   if (!res.ok) {
     return { status: 'unverifiable', reason: `HTTP ${res.status} from ${SERVICE_KEYS_UPSTREAM_URL}` }
   }
@@ -168,6 +247,11 @@ export async function checkServiceKeysFreshness(): Promise<ServiceKeysFreshness>
   const upstreamSet = new Set(upstream.serviceKeys)
   const added = upstream.serviceKeys.filter((k) => !KEY_SET.has(k))
   const removed = SERVICE_KEYS.filter((k) => !upstreamSet.has(k))
-  if (added.length > 0 || removed.length > 0) return { status: 'stale', added, removed }
+  const upstreamCritical = new Set(upstream.criticalKeys)
+  const criticalAdded = upstream.criticalKeys.filter((k) => !CRITICAL_KEY_SET.has(k))
+  const criticalRemoved = CRITICAL_SERVICE_KEYS.filter((k) => !upstreamCritical.has(k))
+  if (added.length > 0 || removed.length > 0 || criticalAdded.length > 0 || criticalRemoved.length > 0) {
+    return { status: 'stale', added, removed, criticalAdded, criticalRemoved }
+  }
   return { status: 'fresh' }
 }

@@ -46,6 +46,25 @@
     "ui",
     "visualizer"
   ],
+  "criticalKeys": [
+    "audio",
+    "codec",
+    "contentRegistry",
+    "db",
+    "downloads",
+    "fs",
+    "http",
+    "js",
+    "library",
+    "paths",
+    "player",
+    "plugin-manager",
+    "scanner",
+    "secrets",
+    "securityAudit",
+    "settings",
+    "store"
+  ],
   "providers": {
     "audio": [
       "@BBeBee/core-audio-mpv"
