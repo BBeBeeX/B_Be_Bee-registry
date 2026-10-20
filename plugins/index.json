@@ -55,8 +55,8 @@
         "visualizer"
       ],
       "repo": "https://github.com/BBeBeeX/BBeBee",
-      "reviewedIntegrity": "sha512-yBDG+V+nWAUyksiRGbBbONbG9Anexa+Pb1hCYip6r8piErrhc/axWcthJQPXTHRTMzwzht6nbREKmShwm6r47w==",
-      "reviewedVersion": "0.1.0",
+      "reviewedIntegrity": "sha512-c2PXRgBF0AMR6M0XCRhOza1PH4F0Ube/EYLg1ENKD3JcLyPNfzuvveAvkGE/L9l0mhPAFtCjRXYgMZ0RA+JWfw==",
+      "reviewedVersion": "0.1.1",
       "services": [
         "audio",
         "player",
