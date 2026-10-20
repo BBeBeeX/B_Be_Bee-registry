@@ -2,15 +2,23 @@
 #
 # URL 连通性检查在无网络或可达时验证；语法与格式严格检验。
 # 本地测试与严格门禁命令：node scripts/validate.mjs --test
+#
+# 除 push/PR 外，每天定时跑一次在线 --strict 全量复验：条目合并后
+# npm 侧的漂移（包被下架/转让、已审钉扎失效、服务键白名单过期、
+# 上游产物消失）没有任何 PR 触发，必须靠定时复验兜底，漂移即红。
 
 name: validate
 
 on:
   pull_request:
   push:
+  schedule:
+    # Daily revalidation (see the revalidate job below).
+    - cron: '23 4 * * *'
 
 jobs:
   validate:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,6 +29,13 @@ jobs:
           node-version: 22
 
       - name: Validate registry entries
+        env:
+          # Official-namespace gate: for pull_request events this is the
+          # PR author's association with the BBeBeeX organization
+          # (OWNER / MEMBER / CONTRIBUTOR / …). Empty for push events —
+          # validate then verifies official status by repo owner only
+          # and prints a note that the submitter check was skipped.
+          BBEBEE_PR_AUTHOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
         run: node scripts/validate.mjs
 
       - name: Negative test suite
@@ -31,3 +46,21 @@ jobs:
         run: |
           node scripts/build-index.mjs
           git diff --exit-code plugins/index.json
+
+  revalidate:
+    # Scheduled full revalidation, online and strict: warnings fail.
+    # Catches post-merge drift that no PR will ever trigger — a
+    # reviewed pin whose bytes changed, an unpublished package, a
+    # stale service-key allowlist, a vanished upstream artifact.
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Scheduled strict revalidation
+        run: node scripts/validate.mjs --strict
