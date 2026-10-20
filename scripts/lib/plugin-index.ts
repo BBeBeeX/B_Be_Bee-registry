@@ -112,3 +112,28 @@ export async function computePluginIndex(root: string): Promise<ComputedPluginIn
 export function serializePluginIndex(data: PluginIndexData): string {
   return `${JSON.stringify(data, null, 2)}\n`
 }
+
+/**
+ * The index-consistency check validate.mjs runs: recomputes the index
+ * from the current entries + blocklist and compares it byte-for-byte
+ * with the committed `plugins/index.json`. Returns a problem string, or
+ * null when consistent. When the index is not even computable (invalid
+ * entries), returns null — those problems are reported by the per-entry
+ * validation itself; this check exists to catch a stale or hand-edited
+ * index, which per-entry validation cannot see.
+ */
+export async function pluginIndexConsistencyIssue(root: string): Promise<string | null> {
+  const { data, problems } = await computePluginIndex(root)
+  if (problems.length > 0) return null
+  const expected = serializePluginIndex(data)
+  let committed: string
+  try {
+    committed = await readFile(join(root, 'plugins', 'index.json'), 'utf8')
+  } catch {
+    return 'plugins/index.json is missing — run: node scripts/build-index.mjs'
+  }
+  if (committed !== expected) {
+    return 'plugins/index.json: committed index does not match the index computed from the current entries and blocklist (stale or hand-edited) — run: node scripts/build-index.mjs'
+  }
+  return null
+}

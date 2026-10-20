@@ -20,7 +20,8 @@
  */
 
 import { existsSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
+import { readFile, mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { KINDS, scanFileEntries, scanThemeDirs } from './lib/registry-model.ts'
@@ -39,6 +40,7 @@ import {
 import { isValidRange, satisfies } from './lib/semver-range.ts'
 import { themeValidationIssues } from './lib/theme-contrast.ts'
 import { loadBlocklist, blocklistHitsForDoc, parseBlocklist, EMPTY_BLOCKLIST } from './lib/blocklist.ts'
+import { computePluginIndex, serializePluginIndex, pluginIndexConsistencyIssue } from './lib/plugin-index.ts'
 import {
   checkServiceKeysFreshness,
   parseServiceKeysArtifact,
@@ -413,6 +415,15 @@ export async function validateRegistry(root = repoRoot) {
     new Set(CRITICAL_SERVICE_KEYS),
   )) {
     err(`plugins (${field}): ${message}`)
+  }
+
+  // 索引一致性：内存重算 plugins/index.json 并与已提交文件逐字比对。
+  // 此前该门禁只存在于 CI workflow 的一个 git-diff step——validate
+  // 本身不看索引，手改/过期索引绕过 CI 合并时无人发现；现在校验本身
+  // 即门禁（CI 的 diff step 保留作双保险）。
+  {
+    const issue = await pluginIndexConsistencyIssue(root)
+    if (issue) err(issue)
   }
 
   // 连通性检查
@@ -1416,6 +1427,46 @@ export async function runNegativeTests() {
     } else {
       console.error('  ✗ blocklist parsing and hit matching FAILED!')
       failed++
+    }
+  }
+
+  // 43. Index consistency: validate itself catches a stale or hand-edited
+  //     index (previously only a CI git-diff step did)
+  {
+    const root = await mkdtemp(join(tmpdir(), 'bbebee-registry-test-'))
+    try {
+      await mkdir(join(root, 'plugins'), { recursive: true })
+      await writeFile(join(root, 'plugins', 'alice-plug.json'), JSON.stringify(v2Plugin()), 'utf8')
+      await writeFile(join(root, 'blocklist.json'), '{}\n', 'utf8')
+
+      const { data, problems } = await computePluginIndex(root)
+      if (problems.length > 0) throw new Error(`fixture index not computable: ${problems.join('; ')}`)
+      await writeFile(join(root, 'plugins', 'index.json'), serializePluginIndex(data), 'utf8')
+      const clean = await pluginIndexConsistencyIssue(root)
+
+      // The audit's PoC: hand-inject a fake entry into the index.
+      const tampered = JSON.parse(serializePluginIndex(data))
+      tampered.entries.push({ id: 'injected-fake', name: 'Fake', npm: '@mallory/fake' })
+      await writeFile(join(root, 'plugins', 'index.json'), JSON.stringify(tampered, null, 2) + '\n', 'utf8')
+      const caughtFake = await pluginIndexConsistencyIssue(root)
+
+      // Tampering with the blocked channel must also be caught.
+      const tampered2 = JSON.parse(serializePluginIndex(data))
+      tampered2.blocked = [{ id: 'mallory-evil', reason: 'malware' }]
+      await writeFile(join(root, 'plugins', 'index.json'), serializePluginIndex(tampered2), 'utf8')
+      const caughtBlocked = await pluginIndexConsistencyIssue(root)
+
+      if (clean === null && caughtFake !== null && caughtBlocked !== null) {
+        console.log('  ✓ index consistency catches hand-edited index')
+        passed++
+      } else {
+        console.error(
+          `  ✗ index consistency FAILED! clean=${JSON.stringify(clean)} fake=${JSON.stringify(caughtFake)} blocked=${JSON.stringify(caughtBlocked)}`,
+        )
+        failed++
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true })
     }
   }
 
