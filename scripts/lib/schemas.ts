@@ -380,6 +380,82 @@ export function collectProvidedServiceKeys(
   return keys
 }
 
+/**
+ * Collects `provides` keys from entries that THEMSELVES pass full schema
+ * validation — and only those. A rejected entry must not be able to make
+ * another entry's `services` legal by declaring the key in `provides`
+ * (the pre-scan previously collected from every parseable document,
+ * including ones that fail validation on other grounds).
+ *
+ * Fixed-point: start from every entry's format-valid provides as the
+ * candidate extras, keep only the entries that validate cleanly against
+ * them, re-collect from the survivors, and repeat until stable. An entry
+ * whose only defect is consuming a key provided by a dropped entry is
+ * itself dropped in the next round.
+ */
+export function collectValidProvidedServiceKeys(
+  items: Iterable<{ file: string; doc: Record<string, unknown> }>,
+): Set<string> {
+  let eligible = [...items]
+  for (;;) {
+    const extras = collectProvidedServiceKeys(eligible.map((i) => i.doc))
+    const next = eligible.filter((i) => validatePluginPointer(i.doc, i.file, extras).length === 0)
+    if (next.length === eligible.length) return extras
+    eligible = next
+  }
+}
+
+/**
+ * Cross-entry gate on `provides` declarations (audit finding: previously
+ * any entry could claim any service, unchecked):
+ *  (a) an entry may not provide a CRITICAL core key — those services
+ *      belong to builtin providers (credentials, code execution, the
+ *      data layer, the plugin system itself) and are never replaceable
+ *      by a registry entry;
+ *  (b) a service key may have at most ONE registry provider — two
+ *      entries claiming the same key would make install-time service
+ *      resolution ambiguous.
+ *
+ * @param entries map of plugin id → parsed entry document
+ * @param criticalKeys the critical subset of the core allowlist
+ *   (scripts/lib/service-keys.ts, vendored from the BBeBee generator)
+ */
+export function validatePluginProvidesGate(
+  entries: Map<string, Record<string, unknown>>,
+  criticalKeys: ReadonlySet<string>,
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  const at = (field: string, message: string) => issues.push({ field, message })
+
+  const providersByKey = new Map<string, string[]>()
+  for (const [id, doc] of entries) {
+    if (!doc || !Array.isArray(doc.provides)) continue
+    const own = new Set<string>()
+    for (const k of doc.provides) {
+      if (typeof k !== 'string' || own.has(k)) continue
+      own.add(k)
+      if (criticalKeys.has(k)) {
+        at(
+          'provides',
+          `plugin "${id}" claims to provide critical core service "${k}" — critical services are reserved to builtin providers and cannot be provided by a registry entry`,
+        )
+      }
+      const list = providersByKey.get(k) ?? []
+      list.push(id)
+      providersByKey.set(k, list)
+    }
+  }
+  for (const [key, ids] of providersByKey) {
+    if (ids.length > 1) {
+      at(
+        'provides',
+        `service key "${key}" is provided by multiple entries (${ids.join(', ')}) — a service key may have only one registry provider`,
+      )
+    }
+  }
+  return issues
+}
+
 export interface PluginDependency {
   /** Registry id of the depended-upon plugin entry. */
   id: string

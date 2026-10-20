@@ -28,13 +28,21 @@ import {
   validatePluginPointer,
   validateSourcePointer,
   validatePluginDependencyGraph,
+  validatePluginProvidesGate,
   collectProvidedServiceKeys,
+  collectValidProvidedServiceKeys,
   PLUGIN_CATEGORIES,
   PLUGIN_COMPOSITORS,
 } from './lib/schemas.ts'
+// (collectProvidedServiceKeys is used by test 35; the valid-only variant
+// above is what production collection uses.)
 import { isValidRange, satisfies } from './lib/semver-range.ts'
 import { themeValidationIssues } from './lib/theme-contrast.ts'
-import { checkServiceKeysFreshness, parseServiceKeysArtifact } from './lib/service-keys.ts'
+import {
+  checkServiceKeysFreshness,
+  parseServiceKeysArtifact,
+  CRITICAL_SERVICE_KEYS,
+} from './lib/service-keys.ts'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const args = process.argv.slice(2)
@@ -149,22 +157,25 @@ export async function validateRegistry(root = repoRoot) {
   const idsByKind = new Map()
   const pluginDocs = new Map() // id → parsed doc, for cross-entry dependency checks
 
-  // 插件跨条目预扫描（两步走第一步）：先收集全部插件条目的 `provides` 服务键，
+  // 插件跨条目预扫描（两步走第一步）：先收集插件条目的 `provides` 服务键，
   // 主校验时作为 extras 传入——条目的 services 可以引用其他插件提供的键。
+  // 只从自身通过完整 schema 校验的条目收集：一个会被拒的条目不能靠在
+  // provides 里声明某个键，就让同批其他条目的 services 变得合法。
   const pluginProvidedKeys = await (async () => {
     const pluginSpec = KINDS.find((k) => k.kind === 'plugin')
     const dir = join(root, pluginSpec.dir)
     const { files } = await scanFileEntries(dir)
-    const docs = []
+    const items = []
     for (const file of files) {
       if (file === 'index.json') continue // 生成的聚合索引不是条目
       try {
-        docs.push(JSON.parse(await readFile(join(dir, file), 'utf8')))
+        const doc = JSON.parse(await readFile(join(dir, file), 'utf8'))
+        if (doc && typeof doc === 'object' && !Array.isArray(doc)) items.push({ file, doc })
       } catch {
         // JSON 损坏在主校验流程中报错，这里跳过
       }
     }
-    return collectProvidedServiceKeys(docs)
+    return collectValidProvidedServiceKeys(items)
   })()
 
   for (const spec of KINDS) {
@@ -263,6 +274,15 @@ export async function validateRegistry(root = repoRoot) {
 
   // 跨条目插件依赖检查：依赖 id 必须存在、依赖图必须无环
   for (const { field, message } of validatePluginDependencyGraph(pluginDocs)) {
+    err(`plugins (${field}): ${message}`)
+  }
+
+  // 跨条目 provides 门禁：关键核心服务不可被条目宣称提供（保留给内置
+  // 提供者）；同一服务键最多只能有一个条目提供者
+  for (const { field, message } of validatePluginProvidesGate(
+    pluginDocs,
+    new Set(CRITICAL_SERVICE_KEYS),
+  )) {
     err(`plugins (${field}): ${message}`)
   }
 
@@ -1024,6 +1044,80 @@ export async function runNegativeTests() {
       console.error('  ✗ service-keys artifact parsing FAILED!')
       failed++
     }
+  }
+
+  // 38. Provides gate: critical keys are reserved; one provider per key
+  {
+    const critical = new Set(['player', 'secrets', 'plugin-manager'])
+    const gate = (entries) =>
+      validatePluginProvidesGate(entries, critical).map((i) => `${i.field}: ${i.message}`)
+
+    // The audit's mallory shape: claiming core services outright.
+    const mallory = new Map([
+      ['mallory-evil', v2Plugin({ id: 'mallory-evil', provides: ['player', 'secrets'] })],
+    ])
+    assertHasError('provides gate rejects critical keys (player)', gate(mallory), [
+      'critical core service "player"',
+    ])
+    assertHasError('provides gate rejects critical keys (secrets)', gate(mallory), [
+      'critical core service "secrets"',
+    ])
+
+    // Two entries providing the same key (even a non-critical one).
+    const dup = new Map([
+      ['alice-a', v2Plugin({ id: 'alice-a', provides: ['suiteCore'] })],
+      ['alice-b', v2Plugin({ id: 'alice-b', provides: ['suiteCore'] })],
+    ])
+    assertHasError('provides gate rejects duplicate provider', gate(dup), [
+      'provided by multiple entries',
+      'alice-a, alice-b',
+    ])
+
+    // One provider of a non-critical key is exactly the intended use.
+    const legit = new Map([
+      ['alice-a', v2Plugin({ id: 'alice-a', provides: ['suiteCore'] })],
+      ['alice-b', v2Plugin({ id: 'alice-b', services: ['suiteCore'] })],
+    ])
+    assertNoError('provides gate allows single non-critical provider', gate(legit))
+  }
+
+  // 39. Pre-scan asymmetry: provides are collected only from entries
+  //     that themselves pass validation
+  {
+    // The provider entry is invalid on other grounds (illegal category),
+    // so its provides must NOT make the consumer's services legal.
+    const badProvider = {
+      file: 'mallory-suite.json',
+      doc: v2Plugin({ id: 'mallory-suite', category: 'not-a-category', provides: ['evilKey'] }),
+    }
+    const consumer = {
+      file: 'alice-consumer.json',
+      doc: v2Plugin({ id: 'alice-consumer', services: ['evilKey'] }),
+    }
+    const extras = collectValidProvidedServiceKeys([badProvider, consumer])
+    const consumerIssues = validatePluginPointer(consumer.doc, consumer.file, extras).map(
+      (i) => `${i.field}: ${i.message}`,
+    )
+    assertHasError('provides from an invalid entry do not count', consumerIssues, [
+      'unknown Cordis service key "evilKey"',
+    ])
+
+    // Same pair, but the provider is fully valid → the key counts.
+    const goodProvider = {
+      file: 'alice-suite.json',
+      doc: v2Plugin({ id: 'alice-suite', provides: ['suiteCore'] }),
+    }
+    const consumer2 = {
+      file: 'alice-consumer.json',
+      doc: v2Plugin({ id: 'alice-consumer', services: ['suiteCore'] }),
+    }
+    const extras2 = collectValidProvidedServiceKeys([goodProvider, consumer2])
+    assertNoError(
+      'provides from a valid entry count',
+      validatePluginPointer(consumer2.doc, consumer2.file, extras2).map(
+        (i) => `${i.field}: ${i.message}`,
+      ),
+    )
   }
 
   console.log(`\nNegative tests finished: ${passed} passed, ${failed} failed.`)

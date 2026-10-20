@@ -16,7 +16,12 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { scanFileEntries } from './lib/registry-model.ts'
-import { validatePluginPointer, collectProvidedServiceKeys } from './lib/schemas.ts'
+import {
+  validatePluginPointer,
+  validatePluginProvidesGate,
+  collectValidProvidedServiceKeys,
+} from './lib/schemas.ts'
+import { CRITICAL_SERVICE_KEYS } from './lib/service-keys.ts'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const pluginsDir = join(repoRoot, 'plugins')
@@ -30,8 +35,9 @@ async function main() {
     return
   }
 
-  // Two passes: collect every entry's `provides` first so that one entry's
-  // `services` may reference a service another entry provides.
+  // Two passes: collect every valid entry's `provides` first so that one
+  // entry's `services` may reference a service another entry provides.
+  // Only schema-valid entries contribute (same rule as validate.mjs).
   let failed0 = false
   const raw = []
   for (const file of files) {
@@ -46,7 +52,7 @@ async function main() {
     }
     raw.push({ file, doc })
   }
-  const providedKeys = collectProvidedServiceKeys(raw.map((r) => r.doc))
+  const providedKeys = collectValidProvidedServiceKeys(raw)
 
   const entries = []
   const seenIds = new Set()
@@ -68,6 +74,17 @@ async function main() {
     }
     seenIds.add(doc.id)
     entries.push(doc)
+  }
+
+  // The provides gate applies to the index too: what validate.mjs would
+  // reject must never reach the client-facing artifact.
+  if (!failed) {
+    const byId = new Map(entries.map((doc) => [doc.id, doc]))
+    const gateIssues = validatePluginProvidesGate(byId, new Set(CRITICAL_SERVICE_KEYS))
+    for (const { field, message } of gateIssues) {
+      console.error(`[error] plugins (${field}): ${message}`)
+    }
+    if (gateIssues.length > 0) failed = true
   }
 
   if (failed) {
