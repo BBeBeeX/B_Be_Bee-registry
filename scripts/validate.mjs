@@ -38,6 +38,7 @@ import {
 // above is what production collection uses.)
 import { isValidRange, satisfies } from './lib/semver-range.ts'
 import { themeValidationIssues } from './lib/theme-contrast.ts'
+import { loadBlocklist, blocklistHitsForDoc, parseBlocklist, EMPTY_BLOCKLIST } from './lib/blocklist.ts'
 import {
   checkServiceKeysFreshness,
   parseServiceKeysArtifact,
@@ -262,6 +263,24 @@ export async function validateRegistry(root = repoRoot) {
   const idsByKind = new Map()
   const pluginDocs = new Map() // id → parsed doc, for cross-entry dependency checks
 
+  // 黑名单（blocklist.json）：MODERATION 黑名单政策的机器载体。命中任一
+  // 类（插件 id / npm 包名 / GitHub 账号 / 仓库）的条目一律硬错误——
+  // 被封作者换个条目名也回不来。名单本身畸形也是错误，绝不静默当空名单。
+  let blocklist = EMPTY_BLOCKLIST
+  try {
+    blocklist = await loadBlocklist(root)
+  } catch (e) {
+    err(e instanceof Error ? e.message : String(e))
+  }
+  const blocklistErrors = (where, doc) => {
+    if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return
+    for (const hit of blocklistHitsForDoc(blocklist, doc)) {
+      err(
+        `${where}: entry is blocklisted (${hit.list}: "${hit.value}" — ${hit.reason}) — see blocklist.json and MODERATION.md`,
+      )
+    }
+  }
+
   // 插件跨条目预扫描（两步走第一步）：先收集插件条目的 `provides` 服务键，
   // 主校验时作为 extras 传入——条目的 services 可以引用其他插件提供的键。
   // 只从自身通过完整 schema 校验的条目收集：一个会被拒的条目不能靠在
@@ -309,6 +328,8 @@ export async function validateRegistry(root = repoRoot) {
         for (const { field, message } of issues) {
           err(`${spec.dir}/${file}${field ? ` (${field})` : ''}: ${message}`)
         }
+
+        blocklistErrors(`${spec.dir}/${file}`, doc)
 
         if (doc && typeof doc.id === 'string') {
           const kindIds = idsByKind.get(spec.kind)
@@ -361,6 +382,8 @@ export async function validateRegistry(root = repoRoot) {
         for (const issue of issues) {
           err(`${spec.dir}/${dir}/theme.json: ${issue}`)
         }
+
+        blocklistErrors(`${spec.dir}/${dir}`, doc)
 
         if (doc && typeof doc.id === 'string') {
           const kindIds = idsByKind.get(spec.kind)
@@ -1351,6 +1374,49 @@ export async function runNegativeTests() {
       ),
       ['injects "secrets"', 'does not declare it in services'],
     )
+  }
+
+  // 42. Blocklist: shape validation and per-list hit matching
+  {
+    const list = parseBlocklist(
+      {
+        version: 1,
+        pluginIds: [{ id: 'mallory-evil', reason: 'malware' }],
+        npmPackages: [{ name: '@mallory/evil', reason: 'malware' }],
+        githubAccounts: [{ account: 'Mallory', reason: 'repeated impersonation' }],
+        repos: [{ repo: 'mallory/evil-repo', reason: 'malware' }],
+      },
+      'test',
+    )
+    const hitsOf = (doc) => blocklistHitsForDoc(list, doc).map((h) => h.list)
+    const checks = [
+      hitsOf({ id: 'mallory-evil' }).includes('pluginIds'),
+      hitsOf({ npm: '@mallory/evil' }).includes('npmPackages'),
+      hitsOf({ repo: 'https://github.com/mallory/anything' }).includes('githubAccounts'),
+      hitsOf({ repo: 'https://github.com/Mallory/Evil-Repo' }).includes('repos'),
+      hitsOf({ id: 'alice-plug', npm: '@alice/plug', repo: 'https://github.com/alice/plug' }).length === 0,
+    ]
+    const throws = (raw) => {
+      try {
+        parseBlocklist(raw, 'test')
+        return false
+      } catch {
+        return true
+      }
+    }
+    checks.push(
+      throws({ pluginIds: [{ id: 'x-y' }] }), // reason is mandatory
+      throws({ pluginIds: [{ id: 'Bad ID!', reason: 'r' }] }), // value format
+      throws({ unknownList: [] }), // unknown top-level field
+      throws({ repos: [{ repo: 'noslash', reason: 'r' }] }), // repo must be owner/name
+    )
+    if (checks.every(Boolean)) {
+      console.log('  ✓ blocklist parsing and hit matching')
+      passed++
+    } else {
+      console.error('  ✗ blocklist parsing and hit matching FAILED!')
+      failed++
+    }
   }
 
   console.log(`\nNegative tests finished: ${passed} passed, ${failed} failed.`)

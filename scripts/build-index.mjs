@@ -1,100 +1,45 @@
 #!/usr/bin/env node
 /**
  * scripts/build-index.mjs — aggregates `plugins/*.json` into the committed
- * `plugins/index.json` (sorted by id). Clients fetch this single file to
- * browse the plugin menu, then resolve versions via npm.
+ * `plugins/index.json`. Clients fetch this single file to browse the
+ * plugin menu, then resolve versions via npm.
  *
  *   node scripts/build-index.mjs
  *
- * The file is generated AND committed: CI regenerates it and fails when the
- * committed copy is stale (mirrors BBeBee's `pnpm gen:plugins` no-diff gate).
+ * Index shape: { "entries": [ …entry documents, sorted by id… ],
+ *                "blocked": [ { "id", "reason" } ] }
+ * `blocked` carries the blocklist's plugin ids (the recall channel for
+ * already-installed copies) and is always present, empty list included.
+ * The computation lives in scripts/lib/plugin-index.ts and is shared
+ * with validate.mjs, which recomputes the index in memory and compares
+ * it against the committed file.
+ *
+ * The file is generated AND committed: CI regenerates it and fails when
+ * the committed copy is stale (mirrors BBeBee's `pnpm gen:plugins`
+ * no-diff gate).
  *
  * 零 npm 依赖；纯 Node 内置模块运行。
  */
 
-import { readFile, writeFile } from 'node:fs/promises'
+import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { scanFileEntries } from './lib/registry-model.ts'
-import {
-  validatePluginPointer,
-  validatePluginProvidesGate,
-  collectValidProvidedServiceKeys,
-} from './lib/schemas.ts'
-import { CRITICAL_SERVICE_KEYS } from './lib/service-keys.ts'
+import { computePluginIndex, serializePluginIndex } from './lib/plugin-index.ts'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
-const pluginsDir = join(repoRoot, 'plugins')
-const indexPath = join(pluginsDir, 'index.json')
+const indexPath = join(repoRoot, 'plugins', 'index.json')
 
 async function main() {
-  const { files, issues } = await scanFileEntries(pluginsDir)
-  if (issues.length > 0) {
-    for (const issue of issues) console.error(`[error] plugins: ${issue}`)
+  const { data, problems } = await computePluginIndex(repoRoot)
+  if (problems.length > 0) {
+    for (const p of problems) console.error(`[error] ${p}`)
     process.exitCode = 1
     return
   }
-
-  // Two passes: collect every valid entry's `provides` first so that one
-  // entry's `services` may reference a service another entry provides.
-  // Only schema-valid entries contribute (same rule as validate.mjs).
-  let failed0 = false
-  const raw = []
-  for (const file of files) {
-    if (file === 'index.json') continue // never index the index itself
-    let doc
-    try {
-      doc = JSON.parse(await readFile(join(pluginsDir, file), 'utf8'))
-    } catch (e) {
-      console.error(`[error] plugins/${file}: invalid JSON — ${e instanceof Error ? e.message : String(e)}`)
-      failed0 = true
-      continue
-    }
-    raw.push({ file, doc })
-  }
-  const providedKeys = collectValidProvidedServiceKeys(raw)
-
-  const entries = []
-  const seenIds = new Set()
-  let failed = failed0
-
-  for (const { file, doc } of raw) {
-    const problems = validatePluginPointer(doc, file, providedKeys)
-    if (problems.length > 0) {
-      for (const { field, message } of problems) {
-        console.error(`[error] plugins/${file}${field ? ` (${field})` : ''}: ${message}`)
-      }
-      failed = true
-      continue
-    }
-    if (seenIds.has(doc.id)) {
-      console.error(`[error] plugins/${file}: duplicate plugin id "${doc.id}"`)
-      failed = true
-      continue
-    }
-    seenIds.add(doc.id)
-    entries.push(doc)
-  }
-
-  // The provides gate applies to the index too: what validate.mjs would
-  // reject must never reach the client-facing artifact.
-  if (!failed) {
-    const byId = new Map(entries.map((doc) => [doc.id, doc]))
-    const gateIssues = validatePluginProvidesGate(byId, new Set(CRITICAL_SERVICE_KEYS))
-    for (const { field, message } of gateIssues) {
-      console.error(`[error] plugins (${field}): ${message}`)
-    }
-    if (gateIssues.length > 0) failed = true
-  }
-
-  if (failed) {
-    process.exitCode = 1
-    return
-  }
-
-  entries.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-  await writeFile(indexPath, `${JSON.stringify(entries, null, 2)}\n`, 'utf8')
-  console.log(`build-index: wrote ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} → plugins/index.json`)
+  await writeFile(indexPath, serializePluginIndex(data), 'utf8')
+  console.log(
+    `build-index: wrote ${data.entries.length} entr${data.entries.length === 1 ? 'y' : 'ies'}, ${data.blocked.length} blocked → plugins/index.json`,
+  )
 }
 
 main().catch((e) => {

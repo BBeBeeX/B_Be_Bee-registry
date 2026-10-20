@@ -1,66 +1,69 @@
-[
-  {
-    "author": "BBeBee Team",
-    "category": "ui-enhancement",
-    "compositors": [
-      "now-playing.visualizer"
-    ],
-    "dependencies": [
-      "bbebeex-visualizer@^0.1.0"
-    ],
-    "description": "Example third-party plugin: spectrogram, spectrum and VU meter views powered by the visualizer service.",
-    "engines": {
-      "bbebee": ">=0.1.0"
+{
+  "entries": [
+    {
+      "author": "BBeBee Team",
+      "category": "ui-enhancement",
+      "compositors": [
+        "now-playing.visualizer"
+      ],
+      "dependencies": [
+        "bbebeex-visualizer@^0.1.0"
+      ],
+      "description": "Example third-party plugin: spectrogram, spectrum and VU meter views powered by the visualizer service.",
+      "engines": {
+        "bbebee": ">=0.1.0"
+      },
+      "i18n": [
+        "en"
+      ],
+      "id": "bbebee-plugin-visualizer-meters",
+      "name": "Visualizer Meters",
+      "npm": "@bbebee/plugin-visualizer-meters",
+      "platforms": [
+        "desktop"
+      ],
+      "provides": [],
+      "repo": "https://github.com/BBeBeeX/B_Be_Bee-visualizer-meters",
+      "reviewedIntegrity": "sha512-JXHqn/WR27uDXbBOIPdKa7ZgpQyTSiJbLZyR2UWlDsi7qP7qPDxiIy+8PsejgvkEf273K942ZklN6FLW7H10oQ==",
+      "reviewedVersion": "0.1.0",
+      "services": [
+        "visualizer"
+      ]
     },
-    "i18n": [
-      "en"
-    ],
-    "id": "bbebee-plugin-visualizer-meters",
-    "name": "Visualizer Meters",
-    "npm": "@bbebee/plugin-visualizer-meters",
-    "platforms": [
-      "desktop"
-    ],
-    "provides": [],
-    "repo": "https://github.com/BBeBeeX/B_Be_Bee-visualizer-meters",
-    "reviewedIntegrity": "sha512-JXHqn/WR27uDXbBOIPdKa7ZgpQyTSiJbLZyR2UWlDsi7qP7qPDxiIy+8PsejgvkEf273K942ZklN6FLW7H10oQ==",
-    "reviewedVersion": "0.1.0",
-    "services": [
-      "visualizer"
-    ]
-  },
-  {
-    "author": "BBeBee Team",
-    "category": "ui-enhancement",
-    "compositors": [
-      "now-playing.visualizer"
-    ],
-    "dependencies": [],
-    "description": "Real-time audio spectrum and waveform visualization service with desktop views.",
-    "engines": {
-      "bbebee": "^0.1.0"
-    },
-    "i18n": [
-      "en",
-      "zh"
-    ],
-    "id": "bbebeex-visualizer",
-    "name": "Audio Visualizer",
-    "npm": "@bbebee/plugin-visualizer",
-    "platforms": [
-      "desktop"
-    ],
-    "provides": [
-      "visualizer"
-    ],
-    "repo": "https://github.com/BBeBeeX/BBeBee",
-    "reviewedIntegrity": "sha512-yBDG+V+nWAUyksiRGbBbONbG9Anexa+Pb1hCYip6r8piErrhc/axWcthJQPXTHRTMzwzht6nbREKmShwm6r47w==",
-    "reviewedVersion": "0.1.0",
-    "services": [
-      "audio",
-      "player",
-      "settings",
-      "ui"
-    ]
-  }
-]
+    {
+      "author": "BBeBee Team",
+      "category": "ui-enhancement",
+      "compositors": [
+        "now-playing.visualizer"
+      ],
+      "dependencies": [],
+      "description": "Real-time audio spectrum and waveform visualization service with desktop views.",
+      "engines": {
+        "bbebee": "^0.1.0"
+      },
+      "i18n": [
+        "en",
+        "zh"
+      ],
+      "id": "bbebeex-visualizer",
+      "name": "Audio Visualizer",
+      "npm": "@bbebee/plugin-visualizer",
+      "platforms": [
+        "desktop"
+      ],
+      "provides": [
+        "visualizer"
+      ],
+      "repo": "https://github.com/BBeBeeX/BBeBee",
+      "reviewedIntegrity": "sha512-yBDG+V+nWAUyksiRGbBbONbG9Anexa+Pb1hCYip6r8piErrhc/axWcthJQPXTHRTMzwzht6nbREKmShwm6r47w==",
+      "reviewedVersion": "0.1.0",
+      "services": [
+        "audio",
+        "player",
+        "settings",
+        "ui"
+      ]
+    }
+  ],
+  "blocked": []
+}
