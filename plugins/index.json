@@ -1,6 +1,33 @@
 {
   "entries": [
     {
+      "author": "Catppuccin Org & BBeBee Community",
+      "category": "ui-enhancement",
+      "compositors": [],
+      "dependencies": [],
+      "description": "Official Catppuccin themes (Latte, Frappé, Macchiato, Mocha) + toggleable Glassmorphism (frosted acrylic glass) and interactive settings for BBeBee.",
+      "engines": {
+        "bbebee": "^0.1.0"
+      },
+      "i18n": [
+        "en"
+      ],
+      "id": "bbebee-plugin-catppuccin-theme",
+      "name": "Catppuccin Theme Suite",
+      "npm": "@bbebee/plugin-catppuccin-theme",
+      "platforms": [
+        "desktop"
+      ],
+      "provides": [],
+      "repo": "https://github.com/BBeBeeX/B_Be_Bee-catppuccin-theme",
+      "reviewedIntegrity": "sha512-Apb66iglQGwsmFPrNmffg/T4rp30CILOMrxEybnYAiuZz2pRcydUG2UUrO7Y3wAzQFXusMFrIDQtoa2+/8NM1A==",
+      "reviewedVersion": "1.0.0",
+      "services": [
+        "theme",
+        "ui"
+      ]
+    },
+    {
       "author": "BBeBee Team",
       "category": "ui-enhancement",
       "compositors": [
