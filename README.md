@@ -22,10 +22,12 @@ BBeBee 音乐播放器的**第三方内容注册表**：社区在这里发布与
    - **聚合索引**：`plugins/index.json` 是由 `scripts/build-index.mjs` 生成的提交文件，形态为 `{ "entries": [...], "blocked": [{ "id", "reason" }] }`，客户端只拉这一个文件做展示；`blocked` 是下架召回通道（数据源为仓库根目录 `blocklist.json`），客户端据此隔离已安装的被封插件。`services` 与插件包内 `BBeBee.plugin.json` 的安全能力 `capabilities`（`fs:`/`net:`/`db:`…）是两个概念，不要混用。
 3. **界面主题（Themes）**：
    - 存储路径：`themes/{author}-{name}/`
-   - **内容进仓**：包含 `theme.json`（颜色设计 Token 定义）与 `preview.png`（预览图）。主题直接托管在本仓，无需 `repo`。必须通过 WCAG AA 对比度门禁与合法 `#hex` 校验。
+   - **内容进仓**：`theme.json` 是**主题包**文档（格式 v2）：一个包含一至多个变体（`variants[]`）的包，每个变体是一套完整的运行时颜色 Token。主题直接托管在本仓，无需 `repo`。包内每个变体都必须通过 WCAG AA 对比度门禁与合法 `#hex` 校验；变体 `id` 必须全仓唯一。`preview.png` 可选（缺失仅警告）——浏览卡片由包的预览色绘制。旧式单主题文档（`tokens.dark` / `tokens.light`）仍被接受。
+   - **聚合索引**：`themes/index.json` 由 `scripts/build-index.mjs` 生成并提交到仓库，只携带包摘要（名称、版本、变体数、变体清单、预览色），客户端浏览页只拉这一个文件；改主题后需重新生成（CI 做新鲜度门禁）。
 
-> **提示**：本仓库无 `dist/` 编译产物目录；插件另有提交到仓库的聚合索引 `plugins/index.json`
-> （`scripts/build-index.mjs` 生成，CI 做新鲜度门禁），客户端展示插件菜单时只拉这一个文件。
+> **提示**：本仓库无 `dist/` 编译产物目录；另有两份提交到仓库的聚合索引 `plugins/index.json` 与
+> `themes/index.json`（`scripts/build-index.mjs` 生成，CI 做新鲜度门禁），客户端展示插件菜单与
+> 主题浏览页时各只拉对应的一个文件。
 
 ---
 
@@ -41,12 +43,13 @@ B_Be_Bee-registry/
 │   ├── <id>.json                     # 插件元数据指针（文件名即 id；schema v2：无 version，有 npm/services/platforms）
 │   └── index.json                    # 生成的聚合索引 { entries, blocked }（scripts/build-index.mjs，提交到仓库）
 ├── themes/
-│   └── {author}-{name}/              # 界面主题定义
-│       ├── theme.json                # 主题 Token 定义（含 tokens.dark / tokens.light）
-│       └── preview.png               # 主题预览图
+│   ├── {author}-{name}/              # 界面主题包（格式 v2）
+│   │   ├── theme.json                # 主题包文档（variants[] 变体；旧式 tokens.dark/light 仍兼容）
+│   │   └── preview.png               # 主题预览图（可选）
+│   └── index.json                    # 生成的主题包聚合索引（包摘要，scripts/build-index.mjs）
 ├── scripts/
 │   ├── validate.mjs                  # 全量校验门禁与负向测试套件
-│   ├── build-index.mjs               # 生成 plugins/index.json
+│   ├── build-index.mjs               # 生成 plugins/index.json 与 themes/index.json
 │   ├── sync-service-keys.mjs         # 同步 vendored 服务键白名单（自 BBeBee 生成产物）
 │   └── lib/                          # 校验规则与模型
 │       ├── schemas.ts                # 四类条目 schema（含插件依赖图、provides 门禁校验）
@@ -55,7 +58,8 @@ B_Be_Bee-registry/
 │       ├── registry-model.ts         # 目录扫描
 │       ├── blocklist.ts              # 黑名单（blocklist.json）解析与命中匹配
 │       ├── plugin-index.ts           # 聚合索引计算（build-index 与 validate 共用）
-│       └── theme-contrast.ts         # 主题对比度门禁
+│       ├── theme-contrast.ts         # 主题对比度门禁
+│       └── theme-index.ts            # 主题包摘要索引计算（build-index 与 validate 共用）
 ├── blocklist.json                    # 审核黑名单的机器载体（id/包名/账号/仓库 + reason）
 ├── CODEOWNERS                        # 官方条目与校验机器的必审归属
 ├── .github/workflows/

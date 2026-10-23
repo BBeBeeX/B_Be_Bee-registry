@@ -17,7 +17,7 @@
    - 音乐源：新建 `music-sources/{username}-{name}.json`
    - 歌词源：新建 `lyric-sources/{username}-{name}.json`
    - 插件：新建 `plugins/<id>.json`（文件名即插件 `id`，见 §2）
-   - 主题：新建 `themes/{author}-{name}/theme.json` 并附带 `themes/{author}-{name}/preview.png`
+   - 主题：新建 `themes/{author}-{name}/theme.json`（主题包文档，见 §4.3；`preview.png` 可选），并运行 `node scripts/build-index.mjs` 重新生成 `themes/index.json` 一并提交
 4. **本地运行校验门禁**：
    ```bash
    node scripts/validate.mjs
@@ -182,25 +182,41 @@
 - `status-bar`
 - `tray`
 
-### 4.3 界面主题（`themes/`）
+### 4.3 界面主题（`themes/`，主题包格式 v2）
 
-- 路径：`themes/{author}-{name}/theme.json` 与 `themes/{author}-{name}/preview.png`
+- 路径：`themes/{author}-{name}/theme.json`；`preview.png` 可选（缺失仅警告）。
 - 内容在仓内维护，无需 `repo`。
+- `theme.json` 是一个**主题包**：一个包内含一至多个变体，用户在应用设置中按包安装、包内切换变体。未知字段一律拒绝（包、变体、旧式三层皆然）。
+
+包字段：
 
 | 字段 | 必填 | 类型 | 说明 |
 |---|---|---|---|
-| `id` | ✅ | `string` | 唯一标识符，小写连字符 slug |
-| `name` | ✅ | `string` | 主题名称 |
+| `id` | ✅ | `string` | 包唯一标识符，小写连字符 slug |
+| `name` | ✅ | `string` | 主题包名称 |
 | `version` | ✅ | `string` | semver 版本号（如 `1.0.0`） |
 | `author` | ✅ | `string` | 设计师/作者署名 |
-| `description` | ✅ | `string` | 主题描述 |
-| `tokens` | ✅ | `object` | 设计 Token 对象，内含 `dark` 和/或 `light` |
+| `description` | ✅ | `string` | 主题包描述 |
+| `variants` | ✅ | `object[]` | 变体数组，至少一个 |
 
-#### `tokens` 规范与门禁：
-1. `tokens` 必须包含 `dark` 和/或 `light` 模式中的至少一种；
-2. 每个模式下的所有颜色值必须是合法的 `#hex` 字符串（`#rrggbb`、`#rrggbbaa` 或 `#rgb`）；
-3. 每个模式必须通过 WCAG AA 对比度门禁测试（正文字体 4.5:1，大字/主要边界 3:1）；
-4. `preview.png` 必须存在于主题目录下作为渲染预览图。
+变体字段（每个变体是一套完整的运行时主题）：
+
+| 字段 | 必填 | 类型 | 说明 |
+|---|---|---|---|
+| `id` | ✅ | `string` | 变体标识符；包内唯一且**全仓唯一**（客户端变体注册表是全局的） |
+| `name` | ✅ | `string` | 变体名称 |
+| `isDark` | ✅ | `boolean` | 是否深色变体 |
+| `tokens` | ✅ | `object` | 完整的分组运行时 `ColorTokens`（`bg`/`surface`/`brand`/`gradient`/`text`/`border`/`semantic`/`music`/`glow`） |
+| `lightTokens` |  | `object` | 可选的浅色配色令牌（结构同 `tokens`） |
+| `cssVariables` / `lightCssVariables` |  | `object` | 可选的额外 CSS 变量覆盖 |
+| `effects` |  | `object` | 可选效果预设（如 `effects.glass` 玻璃推荐值；仅为预设，用户设置优先） |
+| `description` / `version` / `author` |  | `string` | 可选的变体级元数据 |
+
+#### 规范与门禁：
+1. 颜色类令牌值必须是合法的 `#hex` 字符串（`#rrggbb`、`#rrggbbaa` 或 `#rgb`）；`gradient`/`glow` 组的值为 CSS 字符串；
+2. 每个变体（含 `lightTokens`，若提供）都必须通过 WCAG AA 对比度门禁（运行时 9 对检查集：正文 4.5:1，大字/主要边界 3:1）——任一变体不过门，整包校验失败，客户端安装时同样整包拒绝；
+3. 提交后运行 `node scripts/build-index.mjs` 重新生成 `themes/index.json` 并一并提交（校验会重算比对，过期即报错）；
+4. **旧式单主题文档仍被接受**：`theme.json` 直接带 `tokens`（内含 `dark` 和/或 `light`，至少一种；`id`/`name`/`version`/`author`/`description` 同上），每个模式同样过 `#hex` 与 AA 门禁。客户端会把旧式文档当作单变体包安装。新提交请优先用包格式。
 
 ---
 
