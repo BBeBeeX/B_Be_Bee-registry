@@ -1,0 +1,143 @@
+{
+  "id": "tokyo-night",
+  "name": "Tokyo Night",
+  "version": "1.0.0",
+  "author": "BBeBeeX",
+  "description": "Tokyo Night inspired pack with a dark Night variant and a light Day variant.",
+  "variants": [
+    {
+      "id": "tokyo-night",
+      "name": "Tokyo · Night",
+      "isDark": true,
+      "tokens": {
+        "bg": {
+          "app": "#1A1B26",
+          "primary": "#24283B",
+          "secondary": "#1F2336",
+          "tertiary": "#292E48"
+        },
+        "surface": {
+          "s1": "#292E48",
+          "s2": "#343B5C",
+          "s3": "#3D4466",
+          "hover": "#343B5C",
+          "active": "#3D4466",
+          "selected": "#364A82"
+        },
+        "brand": {
+          "primary": "#7AA2F7",
+          "primaryActive": "#5E81D6",
+          "primaryHover": "#9AB3F5",
+          "accent": "#BB9AF7",
+          "accentHover": "#CDA9F5"
+        },
+        "gradient": {
+          "brand": "linear-gradient(135deg, #7AA2F7, #BB9AF7)",
+          "progress": "linear-gradient(90deg, #7AA2F7, #BB9AF7)"
+        },
+        "text": {
+          "primary": "#C0CAF5",
+          "secondary": "#A9B1D6",
+          "tertiary": "#8E95B8",
+          "muted": "#707798",
+          "disabled": "#4A5070",
+          "placeholder": "#707798"
+        },
+        "border": {
+          "subtle": "#2E3350",
+          "default": "#3B4066",
+          "hover": "#4A5180",
+          "active": "#7AA2F7",
+          "focus": "#7AA2F7"
+        },
+        "semantic": {
+          "success": "#9ECE6A",
+          "warning": "#E0AF68",
+          "error": "#FF7A93",
+          "info": "#7DCFFF"
+        },
+        "music": {
+          "playing": "#9ECE6A",
+          "lyrics": "#A9B1D6",
+          "lyricsActive": "#C0CAF5",
+          "lyricsHighlight": "#C0CAF5",
+          "waveform": "#3B4066",
+          "waveformActive": "#BB9AF7"
+        },
+        "glow": {
+          "xs": "none",
+          "sm": "none",
+          "md": "none",
+          "lg": "none"
+        }
+      }
+    },
+    {
+      "id": "tokyo-day",
+      "name": "Tokyo · Day",
+      "isDark": false,
+      "tokens": {
+        "bg": {
+          "app": "#E6E7ED",
+          "primary": "#FAFBFF",
+          "secondary": "#EDEFF5",
+          "tertiary": "#DFE1EA"
+        },
+        "surface": {
+          "s1": "#EDEFF5",
+          "s2": "#DFE1EA",
+          "s3": "#CFD3E0",
+          "hover": "#DFE1EA",
+          "active": "#CFD3E0",
+          "selected": "#C3CCEB"
+        },
+        "brand": {
+          "primary": "#2E5FB8",
+          "primaryActive": "#224A91",
+          "primaryHover": "#3D6FC4",
+          "accent": "#6D3FC4",
+          "accentHover": "#5B33A8"
+        },
+        "gradient": {
+          "brand": "linear-gradient(135deg, #2E5FB8, #6D3FC4)",
+          "progress": "linear-gradient(90deg, #2E5FB8, #6D3FC4)"
+        },
+        "text": {
+          "primary": "#343B58",
+          "secondary": "#4C556E",
+          "tertiary": "#5A637E",
+          "muted": "#767E97",
+          "disabled": "#A9AEC2",
+          "placeholder": "#767E97"
+        },
+        "border": {
+          "subtle": "#D5D8E2",
+          "default": "#B4B9C9",
+          "hover": "#8B92A8",
+          "active": "#2E5FB8",
+          "focus": "#2E5FB8"
+        },
+        "semantic": {
+          "success": "#33635F",
+          "warning": "#7A4A12",
+          "error": "#8C4351",
+          "info": "#2E5FB8"
+        },
+        "music": {
+          "playing": "#33635F",
+          "lyrics": "#4C556E",
+          "lyricsActive": "#343B58",
+          "lyricsHighlight": "#343B58",
+          "waveform": "#C3C8D8",
+          "waveformActive": "#6D3FC4"
+        },
+        "glow": {
+          "xs": "none",
+          "sm": "none",
+          "md": "none",
+          "lg": "none"
+        }
+      }
+    }
+  ]
+}

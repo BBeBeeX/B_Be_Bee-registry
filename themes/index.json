@@ -1,0 +1,56 @@
+{
+  "entries": [
+    {
+      "id": "deepmono",
+      "name": "Deep Mono",
+      "dir": "bbebee-deepmono",
+      "variantCount": 2,
+      "variants": [
+        {
+          "id": "deepmono-graphite",
+          "name": "Deep Mono · Graphite",
+          "isDark": true
+        },
+        {
+          "id": "deepmono-paper",
+          "name": "Deep Mono · Paper",
+          "isDark": false
+        }
+      ],
+      "version": "1.0.0",
+      "author": "BBeBeeX",
+      "description": "A monochrome theme pack: graphite dark and paper light variants in one pack.",
+      "previewColors": [
+        "#121214",
+        "#17171A",
+        "#E4E4E7"
+      ]
+    },
+    {
+      "id": "tokyo-night",
+      "name": "Tokyo Night",
+      "dir": "bbebee-tokyo-night",
+      "variantCount": 2,
+      "variants": [
+        {
+          "id": "tokyo-night",
+          "name": "Tokyo · Night",
+          "isDark": true
+        },
+        {
+          "id": "tokyo-day",
+          "name": "Tokyo · Day",
+          "isDark": false
+        }
+      ],
+      "version": "1.0.0",
+      "author": "BBeBeeX",
+      "description": "Tokyo Night inspired pack with a dark Night variant and a light Day variant.",
+      "previewColors": [
+        "#24283B",
+        "#292E48",
+        "#7AA2F7"
+      ]
+    }
+  ]
+}

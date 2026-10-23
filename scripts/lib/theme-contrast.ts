@@ -107,12 +107,175 @@ export const THEME_ALLOWED_FIELDS = ['id', 'name', 'version', 'author', 'descrip
 const SEMVER = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
+/* ── Theme packs (format v2) ──────────────────────────────────────────────
+ *
+ * A pack document is `{ id, name, version, author, description, variants }`
+ * where each variant is a runtime ThemeDefinition (`isDark` + grouped
+ * `ColorTokens`, optional `lightTokens`). This is the distribution shape
+ * for multi-variant themes (e.g. Catppuccin's four flavours in one pack);
+ * the legacy single-theme document (`tokens: { dark, light }`) stays
+ * valid and is validated by the original path below.
+ */
+
+export const THEME_PACK_ALLOWED_FIELDS = [
+  'id', 'name', 'version', 'author', 'description', 'variants',
+] as const
+
+const VARIANT_ALLOWED_FIELDS = [
+  'id', 'name', 'description', 'version', 'author', 'isDark',
+  'tokens', 'lightTokens', 'cssVariables', 'lightCssVariables', 'effects',
+] as const
+
+/** Token groups whose values are not colours (CSS gradients / shadows). */
+const NON_COLOR_GROUPS = new Set(['gradient', 'glow'])
+
+/** Token paths a runtime variant must carry in full. */
+const REQUIRED_TOKEN_PATHS = [
+  'bg.app', 'bg.primary', 'bg.secondary', 'bg.tertiary',
+  'surface.s1', 'surface.s2', 'surface.s3', 'surface.hover', 'surface.active', 'surface.selected',
+  'brand.primary', 'brand.primaryActive', 'brand.primaryHover', 'brand.accent', 'brand.accentHover',
+  'gradient.brand', 'gradient.progress',
+  'text.primary', 'text.secondary', 'text.tertiary', 'text.muted', 'text.disabled', 'text.placeholder',
+  'border.subtle', 'border.default', 'border.hover', 'border.active', 'border.focus',
+  'semantic.success', 'semantic.warning', 'semantic.error', 'semantic.info',
+  'music.playing', 'music.lyrics', 'music.lyricsActive', 'music.lyricsHighlight', 'music.waveform', 'music.waveformActive',
+  'glow.xs', 'glow.sm', 'glow.md', 'glow.lg',
+] as const
+
+/** Validates one runtime token set; `label` prefixes every issue. */
+function runtimeTokenIssues(tokensObj: Record<string, unknown>, label: string): string[] {
+  const issues: string[] = []
+  const walk = (obj: Record<string, unknown>, prefix = '') => {
+    for (const [k, v] of Object.entries(obj)) {
+      const fullKey = prefix ? `${prefix}.${k}` : k
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        walk(v as Record<string, unknown>, fullKey)
+      } else if (typeof v === 'string') {
+        if (!KNOWN_TOKEN_PATHS.has(fullKey)) {
+          issues.push(`${label}.${fullKey}: unknown token path`)
+          continue
+        }
+        const group = fullKey.split('.')[0]!
+        if (!NON_COLOR_GROUPS.has(group) && !isValidHex(v)) {
+          issues.push(`${label}.${fullKey}: must be a valid #hex colour (#rrggbb, #rrggbbaa, or #rgb), got ${JSON.stringify(v)}`)
+        }
+      } else {
+        issues.push(`${label}.${fullKey}: value must be a string`)
+      }
+    }
+  }
+  walk(tokensObj)
+  for (const path of REQUIRED_TOKEN_PATHS) {
+    if (getTokenValue(tokensObj, path) === undefined) {
+      issues.push(`${label}: missing required token "${path}"`)
+    }
+  }
+  for (const check of CHECKED_PAIRS) {
+    const fg = getTokenValue(tokensObj, check.fg)
+    const bg = getTokenValue(tokensObj, check.bg)
+    if (!fg || !bg || !isValidHex(fg) || !isValidHex(bg)) continue
+    const ratio = Math.round(contrastRatio(fg, bg) * 100) / 100
+    const required = check.large ? AA_LARGE : AA_TEXT
+    if (ratio < required) {
+      issues.push(`contrast (${label}) ${check.pair} — ${ratio} < ${required} (WCAG AA)`)
+    }
+  }
+  return issues
+}
+
+/** The variant ids a document declares (pack docs only; [] otherwise). */
+export function themeVariantIds(value: unknown): string[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return []
+  const variants = (value as Record<string, unknown>).variants
+  if (!Array.isArray(variants)) return []
+  const ids: string[] = []
+  for (const v of variants) {
+    if (v && typeof v === 'object' && typeof (v as Record<string, unknown>).id === 'string') {
+      ids.push((v as Record<string, unknown>).id as string)
+    }
+  }
+  return ids
+}
+
+/** Validates a pack document (the `variants` form of theme.json). */
+export function themePackIssues(theme: Record<string, unknown>): string[] {
+  const issues: string[] = []
+  for (const key of Object.keys(theme)) {
+    if (!(THEME_PACK_ALLOWED_FIELDS as readonly string[]).includes(key)) {
+      issues.push(`theme.json: unknown field "${key}"`)
+    }
+  }
+  if (typeof theme.id !== 'string' || !theme.id.trim()) {
+    issues.push('id: required')
+  } else if (!SLUG.test(theme.id)) {
+    issues.push('id: must be lowercase letters/digits separated by single hyphens')
+  }
+  if (typeof theme.name !== 'string' || !theme.name.trim()) issues.push('name: required')
+  if (typeof theme.version !== 'string' || !SEMVER.test(theme.version)) {
+    issues.push('version: required, semver (e.g. "1.0.0")')
+  }
+  if (typeof theme.author !== 'string' || !theme.author.trim()) issues.push('author: required')
+  if (typeof theme.description !== 'string' || !theme.description.trim()) issues.push('description: required')
+
+  if (!Array.isArray(theme.variants) || theme.variants.length === 0) {
+    issues.push('variants: required non-empty array of theme variants')
+    return issues
+  }
+
+  const seenVariantIds = new Set<string>()
+  theme.variants.forEach((rawVariant, index) => {
+    const label = `variants[${index}]`
+    if (!rawVariant || typeof rawVariant !== 'object' || Array.isArray(rawVariant)) {
+      issues.push(`${label}: must be an object`)
+      return
+    }
+    const variant = rawVariant as Record<string, unknown>
+    for (const key of Object.keys(variant)) {
+      if (!(VARIANT_ALLOWED_FIELDS as readonly string[]).includes(key)) {
+        issues.push(`${label}: unknown field "${key}"`)
+      }
+    }
+    if (typeof variant.id !== 'string' || !variant.id.trim()) {
+      issues.push(`${label}.id: required`)
+    } else {
+      if (!SLUG.test(variant.id)) {
+        issues.push(`${label}.id: must be lowercase letters/digits separated by single hyphens`)
+      }
+      if (seenVariantIds.has(variant.id)) {
+        issues.push(`${label}.id: duplicate variant id "${variant.id}" in pack`)
+      }
+      seenVariantIds.add(variant.id)
+    }
+    if (typeof variant.name !== 'string' || !variant.name.trim()) issues.push(`${label}.name: required`)
+    if (typeof variant.isDark !== 'boolean') issues.push(`${label}.isDark: required boolean`)
+    if (!variant.tokens || typeof variant.tokens !== 'object' || Array.isArray(variant.tokens)) {
+      issues.push(`${label}.tokens: required object (runtime ColorTokens)`)
+    } else {
+      issues.push(...runtimeTokenIssues(variant.tokens as Record<string, unknown>, `${label}.tokens`))
+    }
+    if (variant.lightTokens !== undefined) {
+      if (!variant.lightTokens || typeof variant.lightTokens !== 'object' || Array.isArray(variant.lightTokens)) {
+        issues.push(`${label}.lightTokens: must be an object (runtime ColorTokens)`)
+      } else {
+        issues.push(...runtimeTokenIssues(variant.lightTokens as Record<string, unknown>, `${label}.lightTokens`))
+      }
+    }
+  })
+
+  return issues
+}
+
 export function themeValidationIssues(value: unknown): string[] {
   const issues: string[] = []
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return ['theme.json: must be a JSON object']
   }
   const theme = value as Record<string, unknown>
+
+  // Pack documents (format v2) validate on their own path.
+  if (Array.isArray(theme.variants)) {
+    return themePackIssues(theme)
+  }
 
   // Unknown fields check
   for (const key of Object.keys(theme)) {

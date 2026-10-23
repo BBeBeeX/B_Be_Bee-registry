@@ -1,0 +1,143 @@
+{
+  "id": "deepmono",
+  "name": "Deep Mono",
+  "version": "1.0.0",
+  "author": "BBeBeeX",
+  "description": "A monochrome theme pack: graphite dark and paper light variants in one pack.",
+  "variants": [
+    {
+      "id": "deepmono-graphite",
+      "name": "Deep Mono · Graphite",
+      "isDark": true,
+      "tokens": {
+        "bg": {
+          "app": "#0B0B0C",
+          "primary": "#121214",
+          "secondary": "#0E0E10",
+          "tertiary": "#1A1A1D"
+        },
+        "surface": {
+          "s1": "#17171A",
+          "s2": "#1E1E22",
+          "s3": "#26262C",
+          "hover": "#1E1E22",
+          "active": "#26262C",
+          "selected": "#26262C"
+        },
+        "brand": {
+          "primary": "#E4E4E7",
+          "primaryActive": "#D4D4D8",
+          "primaryHover": "#FAFAFA",
+          "accent": "#A1A1AA",
+          "accentHover": "#D4D4D8"
+        },
+        "gradient": {
+          "brand": "linear-gradient(135deg, #E4E4E7, #A1A1AA)",
+          "progress": "linear-gradient(90deg, #E4E4E7, #A1A1AA)"
+        },
+        "text": {
+          "primary": "#FAFAFA",
+          "secondary": "#D4D4D8",
+          "tertiary": "#A1A1AA",
+          "muted": "#8B8B93",
+          "disabled": "#55555C",
+          "placeholder": "#8B8B93"
+        },
+        "border": {
+          "subtle": "#232329",
+          "default": "#2E2E36",
+          "hover": "#3A3A44",
+          "active": "#E4E4E7",
+          "focus": "#E4E4E7"
+        },
+        "semantic": {
+          "success": "#4ADE80",
+          "warning": "#FBBF24",
+          "error": "#F87171",
+          "info": "#E4E4E7"
+        },
+        "music": {
+          "playing": "#4ADE80",
+          "lyrics": "#D4D4D8",
+          "lyricsActive": "#FAFAFA",
+          "lyricsHighlight": "#FAFAFA",
+          "waveform": "#3F3F46",
+          "waveformActive": "#A1A1AA"
+        },
+        "glow": {
+          "xs": "none",
+          "sm": "none",
+          "md": "none",
+          "lg": "none"
+        }
+      }
+    },
+    {
+      "id": "deepmono-paper",
+      "name": "Deep Mono · Paper",
+      "isDark": false,
+      "tokens": {
+        "bg": {
+          "app": "#F4F4F5",
+          "primary": "#FFFFFF",
+          "secondary": "#FAFAFA",
+          "tertiary": "#ECECEF"
+        },
+        "surface": {
+          "s1": "#F1F1F3",
+          "s2": "#E7E7EA",
+          "s3": "#DBDBE0",
+          "hover": "#E7E7EA",
+          "active": "#DBDBE0",
+          "selected": "#E4E4E7"
+        },
+        "brand": {
+          "primary": "#27272A",
+          "primaryActive": "#18181B",
+          "primaryHover": "#3F3F46",
+          "accent": "#52525B",
+          "accentHover": "#3F3F46"
+        },
+        "gradient": {
+          "brand": "linear-gradient(135deg, #27272A, #52525B)",
+          "progress": "linear-gradient(90deg, #27272A, #52525B)"
+        },
+        "text": {
+          "primary": "#18181B",
+          "secondary": "#3F3F46",
+          "tertiary": "#52525B",
+          "muted": "#71717A",
+          "disabled": "#A1A1AA",
+          "placeholder": "#71717A"
+        },
+        "border": {
+          "subtle": "#E4E4E7",
+          "default": "#C9C9CF",
+          "hover": "#A1A1AA",
+          "active": "#27272A",
+          "focus": "#27272A"
+        },
+        "semantic": {
+          "success": "#15803D",
+          "warning": "#92400E",
+          "error": "#B91C1C",
+          "info": "#27272A"
+        },
+        "music": {
+          "playing": "#15803D",
+          "lyrics": "#3F3F46",
+          "lyricsActive": "#18181B",
+          "lyricsHighlight": "#18181B",
+          "waveform": "#D4D4D8",
+          "waveformActive": "#52525B"
+        },
+        "glow": {
+          "xs": "none",
+          "sm": "none",
+          "md": "none",
+          "lg": "none"
+        }
+      }
+    }
+  ]
+}

@@ -25,9 +25,11 @@ import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { computePluginIndex, serializePluginIndex } from './lib/plugin-index.ts'
+import { computeThemeIndex, serializeThemeIndex } from './lib/theme-index.ts'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 const indexPath = join(repoRoot, 'plugins', 'index.json')
+const themeIndexPath = join(repoRoot, 'themes', 'index.json')
 
 async function main() {
   const { data, problems } = await computePluginIndex(repoRoot)
@@ -39,6 +41,17 @@ async function main() {
   await writeFile(indexPath, serializePluginIndex(data), 'utf8')
   console.log(
     `build-index: wrote ${data.entries.length} entr${data.entries.length === 1 ? 'y' : 'ies'}, ${data.blocked.length} blocked → plugins/index.json`,
+  )
+
+  const themes = await computeThemeIndex(repoRoot)
+  if (themes.problems.length > 0) {
+    for (const p of themes.problems) console.error(`[error] ${p}`)
+    process.exitCode = 1
+    return
+  }
+  await writeFile(themeIndexPath, serializeThemeIndex(themes.data), 'utf8')
+  console.log(
+    `build-index: wrote ${themes.data.entries.length} theme pack${themes.data.entries.length === 1 ? '' : 's'} → themes/index.json`,
   )
 }
 

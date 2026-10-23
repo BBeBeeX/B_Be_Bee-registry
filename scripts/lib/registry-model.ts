@@ -78,6 +78,7 @@ export async function scanThemeDirs(dir: string): Promise<{ dirs: string[]; issu
 
   for (const entry of entries) {
     if (entry.name === '.gitkeep') continue
+    if (entry.name === 'index.json') continue // the generated theme index lives beside the dirs
     if (!entry.isDirectory()) {
       issues.push(`${entry.name}: unexpected file in themes/ (only theme directories allowed)`)
       continue

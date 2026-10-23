@@ -40,7 +40,8 @@ import {
 // (collectProvidedServiceKeys is used by test 35; the valid-only variant
 // above is what production collection uses.)
 import { isValidRange, satisfies } from './lib/semver-range.ts'
-import { themeValidationIssues } from './lib/theme-contrast.ts'
+import { themeValidationIssues, themeVariantIds } from './lib/theme-contrast.ts'
+import { themeIndexConsistencyIssue } from './lib/theme-index.ts'
 import { loadBlocklist, blocklistHitsForDoc, parseBlocklist, EMPTY_BLOCKLIST } from './lib/blocklist.ts'
 import { computePluginIndex, serializePluginIndex, pluginIndexConsistencyIssue } from './lib/plugin-index.ts'
 import {
@@ -554,8 +555,22 @@ export async function validateRegistry(root = repoRoot) {
           }
         }
 
+        // Pack variant ids share the global theme-id namespace: a variant
+        // id colliding with any other theme or variant breaks the client,
+        // whose variant registry is global.
+        for (const variantId of themeVariantIds(doc)) {
+          const kindIds = idsByKind.get(spec.kind)
+          if (variantId !== doc?.id && kindIds.has(variantId)) {
+            err(`${spec.dir}/${dir}: duplicate theme id "${variantId}" (variant of pack "${doc?.id}")`)
+          } else {
+            kindIds.add(variantId)
+          }
+        }
+
+        // preview.png is optional since the pack format: browse cards are
+        // drawn from the pack's preview colours, no image asset required.
         if (!existsSync(previewPath)) {
-          err(`${spec.dir}/${dir}: preview.png is missing`)
+          warn(`${spec.dir}/${dir}: preview.png is missing (optional — browse cards use preview colours)`)
         }
       }
     }
@@ -586,6 +601,12 @@ export async function validateRegistry(root = repoRoot) {
   // 即门禁（CI 的 diff step 保留作双保险）。
   {
     const issue = await pluginIndexConsistencyIssue(root)
+    if (issue) err(issue)
+  }
+
+  // 主题索引一致性：与插件索引同一契约，内存重算 themes/index.json 比对。
+  {
+    const issue = await themeIndexConsistencyIssue(root)
     if (issue) err(issue)
   }
 
@@ -1102,6 +1123,82 @@ export async function runNegativeTests() {
       },
     })
     assertHasError('theme unknown mode in tokens', issues, ['unknown field "neon"'])
+  }
+
+  // 16b. Pack with empty variants is rejected
+  {
+    const issues = themeValidationIssues({
+      id: 'alice-pack',
+      name: 'Alice Pack',
+      version: '1.0.0',
+      author: 'Alice',
+      description: 'Test pack',
+      variants: [],
+    })
+    assertHasError('theme pack empty variants', issues, ['variants: required non-empty'])
+  }
+
+  // 16c. Pack with a duplicate variant id is rejected
+  {
+    const variant = {
+      id: 'alice-one',
+      name: 'One',
+      isDark: true,
+      tokens: { brand: { primary: '#5F87FF' } },
+    }
+    const issues = themeValidationIssues({
+      id: 'alice-pack',
+      name: 'Alice Pack',
+      version: '1.0.0',
+      author: 'Alice',
+      description: 'Test pack',
+      variants: [variant, variant],
+    })
+    assertHasError('theme pack duplicate variant id', issues, ['duplicate variant id "alice-one"'])
+  }
+
+  // 16d. Pack variant failing the AA gate in one variant is rejected
+  {
+    const goodTokens = {
+      bg: { app: '#0B0B0C', primary: '#121214', secondary: '#0E0E10', tertiary: '#1A1A1D' },
+      surface: { s1: '#17171A', s2: '#1E1E22', s3: '#26262C', hover: '#1E1E22', active: '#26262C', selected: '#26262C' },
+      brand: { primary: '#E4E4E7', primaryActive: '#D4D4D8', primaryHover: '#FAFAFA', accent: '#A1A1AA', accentHover: '#D4D4D8' },
+      gradient: { brand: 'linear-gradient(135deg, #E4E4E7, #A1A1AA)', progress: 'linear-gradient(90deg, #E4E4E7, #A1A1AA)' },
+      text: { primary: '#FAFAFA', secondary: '#D4D4D8', tertiary: '#A1A1AA', muted: '#8B8B93', disabled: '#55555C', placeholder: '#8B8B93' },
+      border: { subtle: '#232329', default: '#2E2E36', hover: '#3A3A44', active: '#E4E4E7', focus: '#E4E4E7' },
+      semantic: { success: '#4ADE80', warning: '#FBBF24', error: '#F87171', info: '#E4E4E7' },
+      music: { playing: '#4ADE80', lyrics: '#D4D4D8', lyricsActive: '#FAFAFA', lyricsHighlight: '#FAFAFA', waveform: '#3F3F46', waveformActive: '#A1A1AA' },
+      glow: { xs: 'none', sm: 'none', md: 'none', lg: 'none' },
+    }
+    const badTokens = JSON.parse(JSON.stringify(goodTokens))
+    badTokens.text.primary = '#777777'
+    badTokens.text.secondary = '#666666'
+    const issues = themeValidationIssues({
+      id: 'alice-pack',
+      name: 'Alice Pack',
+      version: '1.0.0',
+      author: 'Alice',
+      description: 'Test pack',
+      variants: [
+        { id: 'alice-good', name: 'Good', isDark: true, tokens: goodTokens },
+        { id: 'alice-bad', name: 'Bad', isDark: true, tokens: badTokens },
+      ],
+    })
+    assertHasError('theme pack variant AA failure', issues, ['contrast (variants[1].tokens)', 'wcag aa'])
+  }
+
+  // 16e. Pack variant with an unknown field is rejected
+  {
+    const issues = themeValidationIssues({
+      id: 'alice-pack',
+      name: 'Alice Pack',
+      version: '1.0.0',
+      author: 'Alice',
+      description: 'Test pack',
+      repo: 'https://github.com/alice/pack',
+      variants: [{ id: 'alice-one', name: 'One', isDark: true, tokens: {} }],
+    })
+    assertHasError('theme pack unknown field (repo)', issues, ['unknown field "repo"'])
   }
 
   // 17. Invalid params in music-source (not array of strings)
