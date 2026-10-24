@@ -16,6 +16,7 @@
   "id": "bbebeex-visualizer",
   "name": "Audio Visualizer",
   "npm": "@bbebee/plugin-visualizer",
+  "npmUrl": "https://registry.npmjs.org/%40bbebee%2Fplugin-visualizer",
   "platforms": [
     "desktop"
   ],

@@ -62,11 +62,26 @@ export const PLUGIN_COMPOSITORS = [
 ] as const
 
 export const PLUGIN_ALLOWED_FIELDS = [
-  'id', 'name', 'repo', 'author', 'description', 'npm', 'services', 'provides',
+  'id', 'name', 'repo', 'author', 'description', 'npm', 'npmUrl', 'services', 'provides',
   'platforms', 'category', 'dependencies', 'compositors', 'i18n',
   'minAppVersion', 'screenshot', 'engines', 'homepage',
   'reviewedVersion', 'reviewedIntegrity',
 ] as const
+
+/**
+ * Canonical npm package address for a package name: the packument URL
+ * on the public registry. It carries neither a version (it addresses
+ * the package, not a release) nor a hash (integrity lives in the
+ * packument's `dist.integrity` / the entry's `reviewedIntegrity`).
+ * Registry entries carry it as `npmUrl`; it must equal exactly this
+ * derivation from the entry's `npm` name, so it can never drift from
+ * the package it names. It is the canonical reference address — the
+ * client still resolves downloads through its effective registry
+ * (mirror-aware), it does not download from `npmUrl` verbatim.
+ */
+export function npmPackumentUrl(name: string): string {
+  return `https://registry.npmjs.org/${encodeURIComponent(name)}`
+}
 
 /** sha512 SRI string as npm reports it in dist.integrity ("sha512-…" + base64). */
 const SRI_SHA512 = /^sha512-[A-Za-z0-9+/]{86}={0,2}$/
@@ -241,6 +256,21 @@ export function validatePluginPointer(
     at('npm', 'required — npm package name to download (e.g. "@alice/bbebee-plugin-foo")')
   } else if (!NPM_PACKAGE_NAME.test(meta.npm.trim())) {
     at('npm', `invalid npm package name ${JSON.stringify(meta.npm)}`)
+  }
+
+  // npmUrl: required canonical npm package address, derived from `npm`
+  // (no version, no hash — it addresses the package, not a release).
+  // It must equal npmPackumentUrl(npm) exactly, so the address can
+  // never point at a different package than the `npm` name does.
+  if (meta.npmUrl === undefined) {
+    at('npmUrl', 'required — canonical npm package address (e.g. "https://registry.npmjs.org/%40alice%2Fbbebee-plugin-foo")')
+  } else if (typeof meta.npm !== 'string' || !NPM_PACKAGE_NAME.test(meta.npm.trim())) {
+    // `npm` itself is already reported above; nothing more to check here.
+  } else if (meta.npmUrl !== npmPackumentUrl(meta.npm.trim())) {
+    at(
+      'npmUrl',
+      `must be the canonical npm package address derived from "npm": ${npmPackumentUrl(meta.npm.trim())}`,
+    )
   }
 
   // repo check (format only — plugin identity is bound by the id rule

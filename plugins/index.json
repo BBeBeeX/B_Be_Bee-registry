@@ -15,6 +15,7 @@
       "id": "bbebee-plugin-catppuccin-theme",
       "name": "Catppuccin Theme Suite",
       "npm": "@bbebee/plugin-catppuccin-theme",
+      "npmUrl": "https://registry.npmjs.org/%40bbebee%2Fplugin-catppuccin-theme",
       "platforms": [
         "desktop"
       ],
@@ -46,6 +47,7 @@
       "id": "bbebee-plugin-visualizer-meters",
       "name": "Visualizer Meters",
       "npm": "@bbebee/plugin-visualizer-meters",
+      "npmUrl": "https://registry.npmjs.org/%40bbebee%2Fplugin-visualizer-meters",
       "platforms": [
         "desktop"
       ],
@@ -73,6 +75,7 @@
       "id": "bbebeex-visualizer",
       "name": "Audio Visualizer",
       "npm": "@bbebee/plugin-visualizer",
+      "npmUrl": "https://registry.npmjs.org/%40bbebee%2Fplugin-visualizer",
       "platforms": [
         "desktop"
       ],

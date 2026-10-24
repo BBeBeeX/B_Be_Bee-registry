@@ -14,7 +14,7 @@ BBeBee 音乐播放器的**第三方内容注册表**：社区在这里发布与
 2. **插件（Plugins）**：
    - 存储路径：`plugins/<id>.json`（文件名即插件 `id`，两者必须一致）
    - **纯元数据指针**：注册表不托管插件代码；条目的 `npm` 字段指向作者发布到 npm 的包，`repo` 指向作者的 GitHub 仓库。一个 npm 包只能支撑一个条目。
-   - **版本真相在 npm**：条目不携带 `version` 字段；客户端从 npm packument 解析最新/符合依赖 range 的版本后下载安装。条目可另声明**已审版本钉扎**（`reviewedVersion` + `reviewedIntegrity`）：CI 校验该版本仍在 npm 上且完整性哈希一致，内容校验对钉扎版本执行；出现更新的未审版本只警告。
+   - **版本真相在 npm**：条目不携带 `version` 字段；客户端从 npm packument 解析最新/符合依赖 range 的版本后下载安装。条目另须携带 `npmUrl`：从 `npm` 派生的标准包地址（`https://registry.npmjs.org/<编码后包名>`），不含版本与哈希，供引用与展示；下载仍由客户端按自身 registry 解析。条目可另声明**已审版本钉扎**（`reviewedVersion` + `reviewedIntegrity`）：CI 校验该版本仍在 npm 上且完整性哈希一致，内容校验对钉扎版本执行；出现更新的未审版本只警告。
    - **依赖声明**：`services` 列出插件必须注入的 Cordis 服务键（安装前做服务依赖检查，可为 `[]`），`dependencies` 声明对其他插件的依赖（支持 `"<id>@<semver-range>"`），`platforms` 声明适配平台（`desktop`/`mobile`）。
    - **提供服务（`provides`）**：插件若注册了供其他插件注入的服务键，在此声明；其他条目的 `services` 即可引用这些键——收集时只承认自身校验通过的条目。**门禁**：17 个关键核心键（`player`、`secrets`、`plugin-manager` 等，完整名单见 vendored 产物）保留给内置提供者，任何条目不得宣称提供；同一服务键全注册表最多一个提供者。核心键白名单不在本仓库维护：它由 BBeBee 仓库从插件 manifest 生成（`packages/protocol/service-keys.json`），本仓库只保存 vendored 副本（`scripts/lib/service-keys.generated.json`，用 `node scripts/sync-service-keys.mjs` 同步）。
    - **官方的唯一定义**：条目 `repo` 的 owner 为 `BBeBeeX` 即官方（客户端徽标亦由此得出）；`bbebeex-` 前缀为官方保留，他人占用即被 CI 拒绝，官方条目只能由组织成员提交（CI 校验 PR 作者关联，`CODEOWNERS` 要求 @BBeBeeX 审核）。

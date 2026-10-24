@@ -34,6 +34,7 @@ import {
   collectProvidedServiceKeys,
   collectValidProvidedServiceKeys,
   parseGitHubRepo,
+  npmPackumentUrl,
   PLUGIN_CATEGORIES,
   PLUGIN_COMPOSITORS,
 } from './lib/schemas.ts'
@@ -85,9 +86,7 @@ async function checkUrl(url) {
 
 /* ── 检查 npm 包是否存在 ─────────────────────────────────────────────── */
 
-export function npmPackumentUrl(name) {
-  return `https://registry.npmjs.org/${encodeURIComponent(name)}`
-}
+export { npmPackumentUrl } from './lib/schemas.ts'
 
 /**
  * Checks that a plugin entry's `npm` package exists on the public npm
@@ -1230,6 +1229,7 @@ export async function runNegativeTests() {
       description: 'Test plugin',
       repo: 'https://github.com/alice/plug',
       npm: '@alice/bbebee-plugin-plug',
+      npmUrl: 'https://registry.npmjs.org/%40alice%2Fbbebee-plugin-plug',
       services: ['player', 'store'],
       platforms: ['desktop'],
       category: 'other',
@@ -1265,6 +1265,25 @@ export async function runNegativeTests() {
     'plugin with old capabilities field name',
     pluginIssues(v2Plugin({ capabilities: ['player'] })),
     ['capabilities', 'unknown field'],
+  )
+
+  // 19b. Plugin npmUrl: required, and must equal the canonical address derived from `npm`
+  {
+    const doc = v2Plugin()
+    delete doc.npmUrl
+    assertHasError('plugin missing npmUrl', pluginIssues(doc), ['npmUrl', 'required'])
+  }
+  assertHasError(
+    'plugin npmUrl pointing at a different package',
+    pluginIssues(v2Plugin({ npmUrl: 'https://registry.npmjs.org/%40mallory%2Fbbebee-plugin-plug' })),
+    ['npmUrl', 'must be the canonical npm package address'],
+  )
+  assertHasError(
+    'plugin npmUrl with a version pinned in',
+    pluginIssues(
+      v2Plugin({ npmUrl: 'https://registry.npmjs.org/%40alice%2Fbbebee-plugin-plug/1.0.0' }),
+    ),
+    ['npmUrl', 'must be the canonical npm package address'],
   )
 
   // 20. Plugin services with an unknown Cordis service key
@@ -1862,6 +1881,7 @@ export async function runNegativeTests() {
         v2Plugin({
           id: 'bbebee-plugin-visualizer-meters',
           npm: '@bbebee/plugin-visualizer-meters',
+          npmUrl: 'https://registry.npmjs.org/%40bbebee%2Fplugin-visualizer-meters',
           repo: 'https://github.com/BBeBeeX/B_Be_Bee-visualizer-meters',
         }),
         'bbebee-plugin-visualizer-meters.json',

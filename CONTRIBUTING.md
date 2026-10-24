@@ -116,6 +116,7 @@
 | `name` | ✅ | `string` | 插件显示名称 |
 | `repo` | ✅ | `string` | 作者 GitHub 仓库主页，必须为 `https://github.com/<owner>/<repo>` |
 | `npm` | ✅ | `string` | npm 包名（客户端从此下载，如 `"@alice/bbebee-plugin-foo"`） |
+| `npmUrl` | ✅ | `string` | npm 包的标准地址，必须等于从 `npm` 派生的 packument 地址（`https://registry.npmjs.org/<encodeURIComponent(npm)>`，如 `"https://registry.npmjs.org/%40alice%2Fbbebee-plugin-foo"`）。不含版本（它定位的是包，不是某个发布）也不含哈希（完整性在 packument 的 `dist.integrity` / 钉扎的 `reviewedIntegrity` 里）。它是标准引用地址：客户端下载仍走自身 effective registry（镜像感知），不直接按此地址下载 |
 | `author` | ✅ | `string` | 作者署名 |
 | `description` | ✅ | `string` | 插件功能说明 |
 | `services` | ✅ | `string[]` | 插件运行时必须注入的 **Cordis 服务键** 列表（如 `["player", "store"]`；可为 `[]`——纯事件型插件不注入任何服务。键必须能被满足：核心键以 BBeBee 仓库从插件 manifest 生成的清单为准（本仓库 vendored 副本在 `scripts/lib/service-keys.generated.json`，用 `node scripts/sync-service-keys.mjs` 同步，不要手工改），或由其他插件条目在 `provides` 中声明；无法满足的键会被 CI 拒绝） |

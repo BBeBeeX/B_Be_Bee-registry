@@ -13,6 +13,7 @@
   "id": "bbebee-plugin-catppuccin-theme",
   "name": "Catppuccin Theme Suite",
   "npm": "@bbebee/plugin-catppuccin-theme",
+  "npmUrl": "https://registry.npmjs.org/%40bbebee%2Fplugin-catppuccin-theme",
   "platforms": [
     "desktop"
   ],
