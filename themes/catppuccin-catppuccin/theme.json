@@ -1,0 +1,409 @@
+{
+  "id": "catppuccin",
+  "name": "Catppuccin",
+  "version": "1.0.0",
+  "author": "Catppuccin Org",
+  "description": "Soothing pastel theme suite: Latte, Frappé, Macchiato and Mocha as variants of one pack.",
+  "variants": [
+    {
+      "id": "catppuccin-mocha",
+      "name": "Catppuccin Mocha",
+      "description": "Official Catppuccin Mocha theme from the Catppuccin palette collection.",
+      "isDark": true,
+      "tokens": {
+        "bg": {
+          "app": "#11111b",
+          "primary": "#1e1e2e",
+          "secondary": "#181825",
+          "tertiary": "#313244"
+        },
+        "surface": {
+          "s1": "#313244",
+          "s2": "#45475a",
+          "s3": "#585b70",
+          "hover": "#cdd6f414",
+          "active": "#cdd6f422",
+          "selected": "#cba6f728"
+        },
+        "brand": {
+          "primary": "#cba6f7",
+          "primaryActive": "#89b4fa",
+          "primaryHover": "#b4befe",
+          "accent": "#b4befe",
+          "accentHover": "#f5c2e7"
+        },
+        "gradient": {
+          "brand": "linear-gradient(135deg, #89b4fa 0%, #b4befe 50%, #cba6f7 100%)",
+          "progress": "linear-gradient(90deg, #89b4fa 0%, #b4befe 50%, #cba6f7 100%)",
+          "blueViolet": "linear-gradient(135deg, #89b4fa 0%, #cba6f7 100%)",
+          "ice": "linear-gradient(135deg, #cdd6f4 0%, #b4befe 50%, #89b4fa 100%)",
+          "spectrum": "linear-gradient(90deg, #f38ba8 0%, #fab387 20%, #f9e2af 40%, #a6e3a1 60%, #89b4fa 80%, #cba6f7 100%)"
+        },
+        "text": {
+          "primary": "#cdd6f4",
+          "secondary": "#a6adc8",
+          "tertiary": "#bac2de",
+          "muted": "#7f849c",
+          "disabled": "#6c7086",
+          "placeholder": "#6c7086"
+        },
+        "border": {
+          "subtle": "#cdd6f418",
+          "default": "#cdd6f428",
+          "hover": "#cba6f766",
+          "active": "#cba6f7",
+          "focus": "#cba6f788"
+        },
+        "semantic": {
+          "success": "#a6e3a1",
+          "warning": "#f9e2af",
+          "error": "#f38ba8",
+          "info": "#89b4fa"
+        },
+        "music": {
+          "playing": "#a6e3a1",
+          "lyrics": "#a6adc8",
+          "lyricsActive": "#cba6f7",
+          "lyricsHighlight": "#cdd6f4",
+          "waveform": "#cdd6f433",
+          "waveformActive": "#cba6f7"
+        },
+        "glow": {
+          "xs": "0 0 6px #cba6f726",
+          "sm": "0 0 12px #cba6f733",
+          "md": "0 0 24px #cba6f740",
+          "lg": "0 0 40px #cba6f74d",
+          "blueXs": "0 0 6px #89b4fa26",
+          "blueSm": "0 0 12px #89b4fa33",
+          "blueMd": "0 0 24px #89b4fa40",
+          "purpleXs": "0 0 6px #cba6f726",
+          "purpleSm": "0 0 12px #cba6f733",
+          "purpleMd": "0 0 24px #cba6f740",
+          "brandSm": "0 0 12px #cba6f733",
+          "brandMd": "0 0 24px #cba6f740"
+        }
+      },
+      "cssVariables": {
+        "--bb-radius-sm": "6px",
+        "--bb-radius-md": "10px",
+        "--bb-radius-pill": "999px",
+        "--catppuccin-rosewater": "#f5e0dc",
+        "--catppuccin-flamingo": "#f2cdcd",
+        "--catppuccin-pink": "#f5c2e7",
+        "--catppuccin-mauve": "#cba6f7",
+        "--catppuccin-red": "#f38ba8",
+        "--catppuccin-maroon": "#eba0ac",
+        "--catppuccin-peach": "#fab387",
+        "--catppuccin-yellow": "#f9e2af",
+        "--catppuccin-green": "#a6e3a1",
+        "--catppuccin-teal": "#94e2d5",
+        "--catppuccin-sky": "#89dceb",
+        "--catppuccin-sapphire": "#74c7ec",
+        "--catppuccin-blue": "#89b4fa",
+        "--catppuccin-lavender": "#b4befe",
+        "--catppuccin-text": "#cdd6f4",
+        "--catppuccin-base": "#1e1e2e",
+        "--catppuccin-mantle": "#181825",
+        "--catppuccin-crust": "#11111b"
+      }
+    },
+    {
+      "id": "catppuccin-macchiato",
+      "name": "Catppuccin Macchiato",
+      "description": "Official Catppuccin Macchiato theme from the Catppuccin palette collection.",
+      "isDark": true,
+      "tokens": {
+        "bg": {
+          "app": "#181926",
+          "primary": "#24273a",
+          "secondary": "#1e2030",
+          "tertiary": "#363a4f"
+        },
+        "surface": {
+          "s1": "#363a4f",
+          "s2": "#494d64",
+          "s3": "#5b6078",
+          "hover": "#cad3f514",
+          "active": "#cad3f522",
+          "selected": "#c6a0f628"
+        },
+        "brand": {
+          "primary": "#c6a0f6",
+          "primaryActive": "#8aadf4",
+          "primaryHover": "#b7bdf8",
+          "accent": "#b7bdf8",
+          "accentHover": "#f5bde6"
+        },
+        "gradient": {
+          "brand": "linear-gradient(135deg, #8aadf4 0%, #b7bdf8 50%, #c6a0f6 100%)",
+          "progress": "linear-gradient(90deg, #8aadf4 0%, #b7bdf8 50%, #c6a0f6 100%)",
+          "blueViolet": "linear-gradient(135deg, #8aadf4 0%, #c6a0f6 100%)",
+          "ice": "linear-gradient(135deg, #cad3f5 0%, #b7bdf8 50%, #8aadf4 100%)",
+          "spectrum": "linear-gradient(90deg, #ed8796 0%, #f5a97f 20%, #eed49f 40%, #a6da95 60%, #8aadf4 80%, #c6a0f6 100%)"
+        },
+        "text": {
+          "primary": "#cad3f5",
+          "secondary": "#a5adcb",
+          "tertiary": "#b8c0e0",
+          "muted": "#8087a2",
+          "disabled": "#6e738d",
+          "placeholder": "#6e738d"
+        },
+        "border": {
+          "subtle": "#cad3f518",
+          "default": "#cad3f528",
+          "hover": "#c6a0f666",
+          "active": "#c6a0f6",
+          "focus": "#c6a0f688"
+        },
+        "semantic": {
+          "success": "#a6da95",
+          "warning": "#eed49f",
+          "error": "#ed8796",
+          "info": "#8aadf4"
+        },
+        "music": {
+          "playing": "#a6da95",
+          "lyrics": "#a5adcb",
+          "lyricsActive": "#c6a0f6",
+          "lyricsHighlight": "#cad3f5",
+          "waveform": "#cad3f533",
+          "waveformActive": "#c6a0f6"
+        },
+        "glow": {
+          "xs": "0 0 6px #c6a0f626",
+          "sm": "0 0 12px #c6a0f633",
+          "md": "0 0 24px #c6a0f640",
+          "lg": "0 0 40px #c6a0f64d",
+          "blueXs": "0 0 6px #8aadf426",
+          "blueSm": "0 0 12px #8aadf433",
+          "blueMd": "0 0 24px #8aadf440",
+          "purpleXs": "0 0 6px #c6a0f626",
+          "purpleSm": "0 0 12px #c6a0f633",
+          "purpleMd": "0 0 24px #c6a0f640",
+          "brandSm": "0 0 12px #c6a0f633",
+          "brandMd": "0 0 24px #c6a0f640"
+        }
+      },
+      "cssVariables": {
+        "--bb-radius-sm": "6px",
+        "--bb-radius-md": "10px",
+        "--bb-radius-pill": "999px",
+        "--catppuccin-rosewater": "#f4dbd6",
+        "--catppuccin-flamingo": "#f0c6c6",
+        "--catppuccin-pink": "#f5bde6",
+        "--catppuccin-mauve": "#c6a0f6",
+        "--catppuccin-red": "#ed8796",
+        "--catppuccin-maroon": "#ee99a0",
+        "--catppuccin-peach": "#f5a97f",
+        "--catppuccin-yellow": "#eed49f",
+        "--catppuccin-green": "#a6da95",
+        "--catppuccin-teal": "#8bd5ca",
+        "--catppuccin-sky": "#91d7e3",
+        "--catppuccin-sapphire": "#7dc4e4",
+        "--catppuccin-blue": "#8aadf4",
+        "--catppuccin-lavender": "#b7bdf8",
+        "--catppuccin-text": "#cad3f5",
+        "--catppuccin-base": "#24273a",
+        "--catppuccin-mantle": "#1e2030",
+        "--catppuccin-crust": "#181926"
+      }
+    },
+    {
+      "id": "catppuccin-frappe",
+      "name": "Catppuccin Frappé",
+      "description": "Official Catppuccin Frappé theme from the Catppuccin palette collection.",
+      "isDark": true,
+      "tokens": {
+        "bg": {
+          "app": "#232634",
+          "primary": "#303446",
+          "secondary": "#292c3c",
+          "tertiary": "#414559"
+        },
+        "surface": {
+          "s1": "#414559",
+          "s2": "#51576d",
+          "s3": "#626880",
+          "hover": "#c6d0f514",
+          "active": "#c6d0f522",
+          "selected": "#ca9ee628"
+        },
+        "brand": {
+          "primary": "#ca9ee6",
+          "primaryActive": "#8caaee",
+          "primaryHover": "#babbf1",
+          "accent": "#babbf1",
+          "accentHover": "#f4b8e4"
+        },
+        "gradient": {
+          "brand": "linear-gradient(135deg, #8caaee 0%, #babbf1 50%, #ca9ee6 100%)",
+          "progress": "linear-gradient(90deg, #8caaee 0%, #babbf1 50%, #ca9ee6 100%)",
+          "blueViolet": "linear-gradient(135deg, #8caaee 0%, #ca9ee6 100%)",
+          "ice": "linear-gradient(135deg, #c6d0f5 0%, #babbf1 50%, #8caaee 100%)",
+          "spectrum": "linear-gradient(90deg, #e78284 0%, #ef9f76 20%, #e5c890 40%, #a6d189 60%, #8caaee 80%, #ca9ee6 100%)"
+        },
+        "text": {
+          "primary": "#c6d0f5",
+          "secondary": "#acb4d2",
+          "tertiary": "#b5bfe2",
+          "muted": "#838ba7",
+          "disabled": "#737994",
+          "placeholder": "#737994"
+        },
+        "border": {
+          "subtle": "#c6d0f518",
+          "default": "#c6d0f528",
+          "hover": "#ca9ee666",
+          "active": "#ca9ee6",
+          "focus": "#ca9ee688"
+        },
+        "semantic": {
+          "success": "#a6d189",
+          "warning": "#e5c890",
+          "error": "#e78284",
+          "info": "#8caaee"
+        },
+        "music": {
+          "playing": "#a6d189",
+          "lyrics": "#a5adce",
+          "lyricsActive": "#ca9ee6",
+          "lyricsHighlight": "#c6d0f5",
+          "waveform": "#c6d0f533",
+          "waveformActive": "#ca9ee6"
+        },
+        "glow": {
+          "xs": "0 0 6px #ca9ee626",
+          "sm": "0 0 12px #ca9ee633",
+          "md": "0 0 24px #ca9ee640",
+          "lg": "0 0 40px #ca9ee64d",
+          "blueXs": "0 0 6px #8caaee26",
+          "blueSm": "0 0 12px #8caaee33",
+          "blueMd": "0 0 24px #8caaee40",
+          "purpleXs": "0 0 6px #ca9ee626",
+          "purpleSm": "0 0 12px #ca9ee633",
+          "purpleMd": "0 0 24px #ca9ee640",
+          "brandSm": "0 0 12px #ca9ee633",
+          "brandMd": "0 0 24px #ca9ee640"
+        }
+      },
+      "cssVariables": {
+        "--bb-radius-sm": "6px",
+        "--bb-radius-md": "10px",
+        "--bb-radius-pill": "999px",
+        "--catppuccin-rosewater": "#f2d5cf",
+        "--catppuccin-flamingo": "#eebebe",
+        "--catppuccin-pink": "#f4b8e4",
+        "--catppuccin-mauve": "#ca9ee6",
+        "--catppuccin-red": "#e78284",
+        "--catppuccin-maroon": "#ea999c",
+        "--catppuccin-peach": "#ef9f76",
+        "--catppuccin-yellow": "#e5c890",
+        "--catppuccin-green": "#a6d189",
+        "--catppuccin-teal": "#81c8be",
+        "--catppuccin-sky": "#99d1db",
+        "--catppuccin-sapphire": "#85c1dc",
+        "--catppuccin-blue": "#8caaee",
+        "--catppuccin-lavender": "#babbf1",
+        "--catppuccin-text": "#c6d0f5",
+        "--catppuccin-base": "#303446",
+        "--catppuccin-mantle": "#292c3c",
+        "--catppuccin-crust": "#232634"
+      }
+    },
+    {
+      "id": "catppuccin-latte",
+      "name": "Catppuccin Latte",
+      "description": "Official Catppuccin Latte theme from the Catppuccin palette collection.",
+      "isDark": false,
+      "tokens": {
+        "bg": {
+          "app": "#dce0e8",
+          "primary": "#eff1f5",
+          "secondary": "#e6e9ef",
+          "tertiary": "#ccd0da"
+        },
+        "surface": {
+          "s1": "#e6e9ef",
+          "s2": "#ccd0da",
+          "s3": "#bcc0cc",
+          "hover": "#4c4f6910",
+          "active": "#4c4f691c",
+          "selected": "#8839ef22"
+        },
+        "brand": {
+          "primary": "#8839ef",
+          "primaryActive": "#1453cc",
+          "primaryHover": "#3879f8",
+          "accent": "#8839ef",
+          "accentHover": "#7287fd"
+        },
+        "gradient": {
+          "brand": "linear-gradient(135deg, #8839ef 0%, #7287fd 50%, #8839ef 100%)",
+          "progress": "linear-gradient(90deg, #8839ef 0%, #7287fd 100%)",
+          "blueViolet": "linear-gradient(135deg, #8839ef 0%, #8839ef 100%)",
+          "ice": "linear-gradient(135deg, #04a5e5 0%, #209fb5 50%, #8839ef 100%)",
+          "spectrum": "linear-gradient(90deg, #d20f39 0%, #fe640b 20%, #df8e1d 40%, #40a02b 60%, #1e66f5 80%, #8839ef 100%)"
+        },
+        "text": {
+          "primary": "#4c4f69",
+          "secondary": "#5c5f77",
+          "tertiary": "#6c6f85",
+          "muted": "#7c7f93",
+          "disabled": "#9ca0b0",
+          "placeholder": "#9ca0b0"
+        },
+        "border": {
+          "subtle": "#4c4f691a",
+          "default": "#4c4f692e",
+          "hover": "#8839ef66",
+          "active": "#8839ef",
+          "focus": "#8839ef88"
+        },
+        "semantic": {
+          "success": "#317b21",
+          "warning": "#df8e1d",
+          "error": "#d20f39",
+          "info": "#1e66f5"
+        },
+        "music": {
+          "playing": "#40a02b",
+          "lyrics": "#5c5f77",
+          "lyricsActive": "#8839ef",
+          "lyricsHighlight": "#4c4f69",
+          "waveform": "#4c4f6933",
+          "waveformActive": "#8839ef"
+        },
+        "glow": {
+          "xs": "0 0 6px #8839ef20",
+          "sm": "0 0 12px #8839ef28",
+          "md": "0 0 20px #8839ef33",
+          "lg": "0 0 32px #8839ef3d"
+        }
+      },
+      "cssVariables": {
+        "--bb-radius-sm": "6px",
+        "--bb-radius-md": "10px",
+        "--bb-radius-pill": "999px",
+        "--catppuccin-rosewater": "#dc8a78",
+        "--catppuccin-flamingo": "#dd7878",
+        "--catppuccin-pink": "#ea76cb",
+        "--catppuccin-mauve": "#8839ef",
+        "--catppuccin-red": "#d20f39",
+        "--catppuccin-maroon": "#e64553",
+        "--catppuccin-peach": "#fe640b",
+        "--catppuccin-yellow": "#df8e1d",
+        "--catppuccin-green": "#40a02b",
+        "--catppuccin-teal": "#179299",
+        "--catppuccin-sky": "#04a5e5",
+        "--catppuccin-sapphire": "#209fb5",
+        "--catppuccin-blue": "#1e66f5",
+        "--catppuccin-lavender": "#7287fd",
+        "--catppuccin-text": "#4c4f69",
+        "--catppuccin-base": "#eff1f5",
+        "--catppuccin-mantle": "#e6e9ef",
+        "--catppuccin-crust": "#dce0e8"
+      }
+    }
+  ]
+}

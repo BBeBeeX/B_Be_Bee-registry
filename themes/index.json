@@ -1,6 +1,42 @@
 {
   "entries": [
     {
+      "id": "catppuccin",
+      "name": "Catppuccin",
+      "dir": "catppuccin-catppuccin",
+      "variantCount": 4,
+      "variants": [
+        {
+          "id": "catppuccin-mocha",
+          "name": "Catppuccin Mocha",
+          "isDark": true
+        },
+        {
+          "id": "catppuccin-macchiato",
+          "name": "Catppuccin Macchiato",
+          "isDark": true
+        },
+        {
+          "id": "catppuccin-frappe",
+          "name": "Catppuccin Frappé",
+          "isDark": true
+        },
+        {
+          "id": "catppuccin-latte",
+          "name": "Catppuccin Latte",
+          "isDark": false
+        }
+      ],
+      "version": "1.0.0",
+      "author": "Catppuccin Org",
+      "description": "Soothing pastel theme suite: Latte, Frappé, Macchiato and Mocha as variants of one pack.",
+      "previewColors": [
+        "#1e1e2e",
+        "#313244",
+        "#cba6f7"
+      ]
+    },
+    {
       "id": "deepmono",
       "name": "Deep Mono",
       "dir": "bbebee-deepmono",
