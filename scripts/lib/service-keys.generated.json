@@ -67,130 +67,130 @@
   ],
   "providers": {
     "audio": [
-      "@BBeBee/core-audio-mpv"
+      "@bbebee/core-audio-mpv"
     ],
     "audioConverter": [
-      "@BBeBee/plugin-audio-converter"
+      "@bbebee/plugin-audio-converter"
     ],
     "background": [
-      "@BBeBee/core-background-expo",
-      "@BBeBee/core-background-tauri"
+      "@bbebee/core-background-expo",
+      "@bbebee/core-background-tauri"
     ],
     "cache": [
-      "@BBeBee/plugin-cache"
+      "@bbebee/plugin-cache"
     ],
     "codec": [
-      "@BBeBee/core-codec-node",
-      "@BBeBee/core-codec-rn"
+      "@bbebee/core-codec-node",
+      "@bbebee/core-codec-rn"
     ],
     "contentRegistry": [
-      "@BBeBee/plugin-registry"
+      "@bbebee/plugin-registry"
     ],
     "db": [
-      "@BBeBee/core-db-expo",
-      "@BBeBee/core-desktop-bridge"
+      "@bbebee/core-db-expo",
+      "@bbebee/core-desktop-bridge"
     ],
     "desktopLyrics": [
-      "@BBeBee/plugin-desktop-lyrics"
+      "@bbebee/plugin-desktop-lyrics"
     ],
     "device": [
-      "@BBeBee/core-device-expo",
-      "@BBeBee/core-device-tauri"
+      "@bbebee/core-device-expo",
+      "@bbebee/core-device-tauri"
     ],
     "downloads": [
-      "@BBeBee/plugin-download"
+      "@bbebee/plugin-download"
     ],
     "dsp": [
-      "@BBeBee/plugin-dsp"
+      "@bbebee/plugin-dsp"
     ],
     "fs": [
-      "@BBeBee/core-desktop-bridge",
-      "@BBeBee/core-fs-expo"
+      "@bbebee/core-desktop-bridge",
+      "@bbebee/core-fs-expo"
     ],
     "http": [
-      "@BBeBee/core-http-node",
-      "@BBeBee/core-http-rn"
+      "@bbebee/core-http-node",
+      "@bbebee/core-http-rn"
     ],
     "i18n": [
-      "@BBeBee/plugin-i18n"
+      "@bbebee/plugin-i18n"
     ],
     "inspector": [
-      "@BBeBee/plugin-inspector"
+      "@bbebee/plugin-inspector"
     ],
     "js": [
-      "@BBeBee/core-js-quickjs-node"
+      "@bbebee/core-js-quickjs-node"
     ],
     "library": [
-      "@BBeBee/plugin-library"
+      "@bbebee/plugin-library"
     ],
     "logBuffer": [
-      "@BBeBee/plugin-log-buffer"
+      "@bbebee/plugin-log-buffer"
     ],
     "lyricSources": [
-      "@BBeBee/plugin-lyric-sources"
+      "@bbebee/plugin-lyric-sources"
     ],
     "lyrics": [
-      "@BBeBee/plugin-lyrics"
+      "@bbebee/plugin-lyrics"
     ],
     "mediaSession": [
-      "@BBeBee/core-media-session-rn",
-      "@BBeBee/core-media-session-tauri"
+      "@bbebee/core-media-session-rn",
+      "@bbebee/core-media-session-tauri"
     ],
     "miniPlayer": [
-      "@BBeBee/plugin-mini-player"
+      "@bbebee/plugin-mini-player"
     ],
     "nowPlaying": [
-      "@BBeBee/plugin-now-playing"
+      "@bbebee/plugin-now-playing"
     ],
     "paths": [
-      "@BBeBee/core-desktop-bridge",
-      "@BBeBee/core-paths-expo"
+      "@bbebee/core-desktop-bridge",
+      "@bbebee/core-paths-expo"
     ],
     "player": [
-      "@BBeBee/plugin-player"
+      "@bbebee/plugin-player"
     ],
     "plugin-manager": [
-      "@BBeBee/plugin-manager"
+      "@bbebee/plugin-manager"
     ],
     "registryMetadata": [
-      "@BBeBee/plugin-registry-metadata"
+      "@bbebee/plugin-registry-metadata"
     ],
     "scanner": [
-      "@BBeBee/plugin-local-scanner"
+      "@bbebee/plugin-local-scanner"
     ],
     "secrets": [
-      "@BBeBee/core-secrets-expo",
-      "@BBeBee/core-secrets-node"
+      "@bbebee/core-secrets-expo",
+      "@bbebee/core-secrets-node"
     ],
     "securityAudit": [
-      "@BBeBee/plugin-security-audit"
+      "@bbebee/plugin-security-audit"
     ],
     "settings": [
-      "@BBeBee/plugin-settings"
+      "@bbebee/plugin-settings"
     ],
     "share": [
-      "@BBeBee/plugin-share"
+      "@bbebee/plugin-share"
     ],
     "sleepTimer": [
-      "@BBeBee/plugin-sleep-timer"
+      "@bbebee/plugin-sleep-timer"
     ],
     "sourceLocal": [
-      "@BBeBee/plugin-source-local"
+      "@bbebee/plugin-source-local"
     ],
     "sources": [
-      "@BBeBee/plugin-sources"
+      "@bbebee/plugin-sources"
     ],
     "store": [
-      "@BBeBee/core-store-fs"
+      "@bbebee/core-store-fs"
     ],
     "theme": [
-      "@BBeBee/plugin-theme"
+      "@bbebee/plugin-theme"
     ],
     "ui": [
-      "@BBeBee/plugin-ui"
+      "@bbebee/plugin-ui"
     ],
     "visualizer": [
-      "@BBeBee/plugin-visualizer"
+      "@bbebee/plugin-visualizer"
     ]
   }
 }
